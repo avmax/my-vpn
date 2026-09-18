@@ -1,0 +1,25 @@
+---
+# Full deployment. Examples:
+#   ansible-playbook site.yml -l eu_candidates        # Phase 1 shoot-out
+#   ansible-playbook site.yml -l eu                   # production foreign exit
+#   ansible-playbook site.yml -l msk                  # Moscow node (Phase 4)
+#   ansible-playbook site.yml -l eu -e msk_link_enabled=true   # enable EU->MSK link after msk exists
+- name: Base hardening and AmneziaWG on every node
+  hosts: all
+  become: true
+  vars_files:
+    - ../secrets/secrets.yml
+  roles:
+    - base
+    - awg
+
+- name: Foreign exit services (cover site, Xray, optional link to Moscow)
+  hosts: eu_candidates:eu:standby
+  become: true
+  vars_files:
+    - ../secrets/secrets.yml
+  roles:
+    - caddy
+    - xray
+    - role: awg-link
+      when: msk_link_enabled | bool

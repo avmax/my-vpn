@@ -1,0 +1,146 @@
+---
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+      - unattended-upgrades
+      - curl
+      - unzip
+      - jq
+      - ca-certificates
+      - gnupg
+      - software-properties-common
+      - iptables
+      - iperf3
+      - chrony
+    update_cache: true
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Install our SSH public key for root
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ lookup('file', ssh_pubkey_path | expanduser) }}"
+    state: present
+
+- name: SSH hardening drop-in (00- so it wins over cloud-init's 50- file; first value wins in sshd)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+      X11Forwarding no
+      MaxAuthTries 4
+      Port {{ sshd_port }}
+  notify: restart ssh
+
+- name: Kernel network settings (forwarding, BBR, IPv6 off, loose rp_filter for policy routing)
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/90-vpn.conf
+    reload: true
+  loop: "{{ sysctl_settings | dict2items }}"
+  vars:
+    sysctl_settings:
+      net.ipv4.ip_forward: 1
+      net.core.default_qdisc: fq
+      net.ipv4.tcp_congestion_control: bbr
+      net.ipv6.conf.all.disable_ipv6: 1
+      net.ipv6.conf.default.disable_ipv6: 1
+      net.ipv4.conf.all.rp_filter: 2
+      net.ipv4.conf.default.rp_filter: 2
+
+- name: ufw defaults
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+    - { direction: routed, policy: allow }
+
+- name: ufw allow SSH (rate limited)
+  community.general.ufw:
+    rule: limit
+    port: "{{ sshd_port }}"
+    proto: tcp
+
+- name: ufw allow web ports on exit nodes (80 for ACME/redirect, 443 for Reality)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "{{ caddy_http_port }}"
+    - "{{ xray_reality_port }}"
+  when: site_role == 'eu'
+
+- name: ufw allow AmneziaWG
+  community.general.ufw:
+    rule: allow
+    port: "{{ awg_port }}"
+    proto: udp
+
+- name: ufw allow plain-WireGuard control port (Phase 1 test mode)
+  community.general.ufw:
+    rule: allow
+    port: "{{ awg_control_port }}"
+    proto: udp
+  when: test_mode | bool and site_role == 'eu'
+
+- name: ufw allow iperf3 from the tunnel only (Phase 1 test mode)
+  community.general.ufw:
+    rule: allow
+    interface: awg0
+    direction: in
+    port: "5201"
+    proto: tcp
+  when: test_mode | bool
+
+- name: ufw enable
+  community.general.ufw:
+    state: enabled
+
+- name: iperf3 server for Phase 1 (test mode only)
+  ansible.builtin.systemd:
+    name: iperf3
+    enabled: "{{ test_mode | bool }}"
+    state: "{{ 'started' if test_mode | bool else 'stopped' }}"
+  failed_when: false
+
+- name: fail2ban sshd jail
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    mode: "0644"
+    content: |
+      [DEFAULT]
+      bantime = 1h
+      findtime = 10m
+      maxretry = 5
+      [sshd]
+      enabled = true
+      port = {{ sshd_port }}
+  notify: restart fail2ban
+
+- name: unattended-upgrades on
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+
+- name: Services enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - fail2ban
+    - chrony

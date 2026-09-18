@@ -1,0 +1,82 @@
+{# Every device gets a "home" VLESS user; devices with abroad: true also get a "<name>-abroad" user
+   whose Russia-bound traffic is pushed through the AmneziaWG link to the Moscow node. #}
+{% set ns = namespace(clients=[], clients_xhttp=[], abroad_users=[], short_ids=[]) %}
+{% for d in vpn_devices %}
+{%   set s = device_secrets[d.name] %}
+{%   set ns.clients = ns.clients + [{"id": s.uuid_home, "flow": "xtls-rprx-vision", "email": d.name}] %}
+{%   set ns.clients_xhttp = ns.clients_xhttp + [{"id": s.uuid_home, "email": d.name}] %}
+{%   set ns.short_ids = ns.short_ids + [s.reality_short_id] %}
+{%   if d.abroad %}
+{%     set ns.clients = ns.clients + [{"id": s.uuid_abroad, "flow": "xtls-rprx-vision", "email": d.name ~ "-abroad"}] %}
+{%     set ns.clients_xhttp = ns.clients_xhttp + [{"id": s.uuid_abroad, "email": d.name ~ "-abroad"}] %}
+{%     set ns.abroad_users = ns.abroad_users + [d.name ~ "-abroad"] %}
+{%   endif %}
+{% endfor %}
+{
+  "log": { "loglevel": "warning", "access": "none" },
+  "dns": {
+    "servers": [ "1.1.1.1", "8.8.8.8" ],
+    "queryStrategy": "UseIPv4"
+  },
+  "inbounds": [
+    {
+      "tag": "reality-in",
+      "listen": "0.0.0.0",
+      "port": {{ xray_reality_port }},
+      "protocol": "vless",
+      "settings": {
+        "clients": {{ ns.clients | to_nice_json(indent=2) | indent(8) }},
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "target": "127.0.0.1:{{ caddy_internal_port }}",
+          "xver": 0,
+          "serverNames": [ "{{ vpn_domain }}" ],
+          "privateKey": "{{ reality_private_key }}",
+          "shortIds": {{ ns.short_ids | to_json }}
+        }
+      },
+      "sniffing": { "enabled": true, "destOverride": [ "http", "tls", "quic" ], "routeOnly": true }
+    },
+    {
+      "tag": "xhttp-in",
+      "listen": "127.0.0.1",
+      "port": {{ xhttp_internal_port }},
+      "protocol": "vless",
+      "settings": {
+        "clients": {{ ns.clients_xhttp | to_nice_json(indent=2) | indent(8) }},
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": { "path": "/{{ xhttp_path }}", "mode": "auto" }
+      },
+      "sniffing": { "enabled": true, "destOverride": [ "http", "tls", "quic" ], "routeOnly": true }
+    }
+  ],
+  "outbounds": [
+    { "tag": "direct", "protocol": "freedom", "settings": { "domainStrategy": "UseIPv4" } },
+    { "tag": "block", "protocol": "blackhole" }{% if msk_link_enabled | bool %},
+    {
+      "tag": "msk",
+      "protocol": "freedom",
+      "settings": { "domainStrategy": "UseIPv4" },
+      "streamSettings": { "sockopt": { "mark": {{ msk_fwmark }} } }
+    }{% endif %}
+
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      { "ip": [ "geoip:private" ], "outboundTag": "block" }{% if block_bittorrent | bool %},
+      { "protocol": [ "bittorrent" ], "outboundTag": "block" }{% endif %}{% if msk_link_enabled | bool and ns.abroad_users %},
+      { "user": {{ ns.abroad_users | to_json }}, "domain": {{ ru_domain_rules | to_json }}, "outboundTag": "msk" },
+      { "user": {{ ns.abroad_users | to_json }}, "ip": {{ ru_ip_rules | to_json }}, "outboundTag": "msk" }{% endif %}
+
+    ]
+  }
+}

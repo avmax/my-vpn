@@ -1,0 +1,17 @@
+# provider|location|ping_host|download_url|role
+# role: candidate = provider we may rent from; control = expected to be throttled from Russia (TSPU AS lists)
+hetzner|helsinki|hel1-speed.hetzner.com|https://hel1-speed.hetzner.com/100MB.bin|control
+hetzner|nuremberg|nbg1-speed.hetzner.com|https://nbg1-speed.hetzner.com/100MB.bin|control
+vultr|amsterdam|ams-nl-ping.vultr.com|https://ams-nl-ping.vultr.com/vultr.com.100MB.bin|control
+vultr|frankfurt|fra-de-ping.vultr.com|https://fra-de-ping.vultr.com/vultr.com.100MB.bin|control
+vultr|stockholm|sto-se-ping.vultr.com|https://sto-se-ping.vultr.com/vultr.com.100MB.bin|control
+digitalocean|amsterdam|speedtest-ams3.digitalocean.com|http://speedtest-ams3.digitalocean.com/100mb.test|control
+digitalocean|frankfurt|speedtest-fra1.digitalocean.com|http://speedtest-fra1.digitalocean.com/100mb.test|control
+linode|frankfurt|speedtest.frankfurt.linode.com|https://speedtest.frankfurt.linode.com/100MB-frankfurt.bin|control
+ovh|gravelines|proof.ovh.net|https://proof.ovh.net/files/100Mb.dat|control
+scaleway|paris|ping.online.net|http://ping.online.net/100Mo.dat|control
+# Candidate hosters: their public looking-glass URLs change; fill in from each provider's "looking glass" page
+# before running (HostKey, Timeweb Cloud, VDSina, 4VPS, is*hosting, RuVDS). Lines without a URL are pinged only.
+hostkey|helsinki|hostkey.com||candidate
+timeweb|amsterdam|timeweb.cloud||candidate
+vdsina|amsterdam|vdsina.ru||candidate

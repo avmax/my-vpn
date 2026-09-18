@@ -1,0 +1,42 @@
+{
+	email {{ acme_email }}
+	http_port {{ caddy_http_port }}
+	https_port {{ caddy_internal_port }}
+	servers {
+		protocols h1 h2
+	}
+}
+
+# Plain HTTP: ACME challenge is answered here automatically; everything else redirects to the
+# public https URL (port 443 = Xray, which hands non-Reality TLS to the site below).
+http://{{ vpn_domain }} {
+	redir https://{{ vpn_domain }}{uri} permanent
+}
+
+{{ vpn_domain }} {
+	encode gzip
+	header -Server
+
+	# private subscription for Happ (path token is a secret; directory listing off)
+	handle_path /s/{{ sub_token }}/* {
+		root * /var/www/sub
+		header Cache-Control "no-store"
+		header profile-update-interval "12"
+		file_server
+	}
+
+	# VLESS over XHTTP (secondary transport) lives behind a secret path
+	handle /{{ xhttp_path }}/* {
+		reverse_proxy 127.0.0.1:{{ xhttp_internal_port }} {
+			flush_interval -1
+			transport http {
+				versions h1 h2c
+			}
+		}
+	}
+
+	handle {
+		root * /var/www/site
+		file_server
+	}
+}

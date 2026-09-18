@@ -1,0 +1,48 @@
+{# Server-side AmneziaWG interface. Obfuscation set differs per node (awg_eu / awg_msk). #}
+{% set p = awg_eu if site_role == 'eu' else awg_msk %}
+{% set subnet = awg_subnet if site_role == 'eu' else awg_msk_subnet %}
+{% set addr = awg_server_ip if site_role == 'eu' else awg_msk_server_ip %}
+{% set wan = ansible_default_ipv4.interface %}
+[Interface]
+Address = {{ addr }}/24
+ListenPort = {{ awg_port }}
+PrivateKey = {{ p.private_key }}
+MTU = {{ awg_mtu }}
+Jc = {{ p.jc }}
+Jmin = {{ p.jmin }}
+Jmax = {{ p.jmax }}
+S1 = {{ p.s1 }}
+S2 = {{ p.s2 }}
+H1 = {{ p.h1 }}
+H2 = {{ p.h2 }}
+H3 = {{ p.h3 }}
+H4 = {{ p.h4 }}
+I1 = {{ p.i1 }}
+PostUp = iptables -I FORWARD -i %i -j ACCEPT; iptables -I FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -s {{ subnet }} -o {{ wan }} -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -s {{ subnet }} -o {{ wan }} -j MASQUERADE
+
+{% if site_role == 'eu' %}
+{% for d in vpn_devices %}
+[Peer]
+# {{ d.name }}
+PublicKey = {{ device_secrets[d.name].awg_eu.public_key }}
+PresharedKey = {{ device_secrets[d.name].awg_eu.psk }}
+AllowedIPs = {{ d.awg_ip }}/32
+
+{% endfor %}
+{% else %}
+[Peer]
+# eu node link
+PublicKey = {{ msk_link.public_key }}
+PresharedKey = {{ msk_link.psk }}
+AllowedIPs = {{ awg_msk_client_ip }}/32
+
+{% for d in vpn_devices if d.msk_awg_ip %}
+[Peer]
+# {{ d.name }} (direct Moscow profile)
+PublicKey = {{ device_secrets[d.name].awg_msk.public_key }}
+PresharedKey = {{ device_secrets[d.name].awg_msk.psk }}
+AllowedIPs = {{ d.msk_awg_ip }}/32
+
+{% endfor %}
+{% endif %}

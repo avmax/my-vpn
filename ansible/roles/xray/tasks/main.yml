@@ -1,0 +1,122 @@
+---
+- name: xray system user
+  ansible.builtin.user:
+    name: xray
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: xray directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: xray
+    mode: "0750"
+  loop:
+    - /usr/local/etc/xray
+    - /usr/local/share/xray
+
+- name: Installed xray version
+  ansible.builtin.command: /usr/local/bin/xray version
+  register: xray_ver
+  changed_when: false
+  failed_when: false
+
+- name: Download pinned Xray-core
+  ansible.builtin.get_url:
+    url: "https://github.com/XTLS/Xray-core/releases/download/v{{ xray_version }}/Xray-linux-64.zip"
+    dest: "/tmp/Xray-linux-64-{{ xray_version }}.zip"
+    mode: "0644"
+  when: xray_ver.rc != 0 or ('Xray ' + xray_version) not in xray_ver.stdout
+
+- name: Unpack Xray-core
+  ansible.builtin.unarchive:
+    src: "/tmp/Xray-linux-64-{{ xray_version }}.zip"
+    dest: "/tmp/xray-{{ xray_version }}"
+    remote_src: true
+  when: xray_ver.rc != 0 or ('Xray ' + xray_version) not in xray_ver.stdout
+
+- name: Install xray binary
+  ansible.builtin.copy:
+    src: "/tmp/xray-{{ xray_version }}/xray"
+    dest: /usr/local/bin/xray
+    remote_src: true
+    mode: "0755"
+  when: xray_ver.rc != 0 or ('Xray ' + xray_version) not in xray_ver.stdout
+  notify: restart xray
+
+- name: Geo data (runetfreedom, Russia-aware geoip/geosite)
+  ansible.builtin.get_url:
+    url: "{{ xray_geo_release_url }}/{{ item }}"
+    dest: "/usr/local/share/xray/{{ item }}"
+    mode: "0644"
+    force: false
+  loop:
+    - geoip.dat
+    - geosite.dat
+  notify: restart xray
+
+- name: Geo updater script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/xray-geo-update
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      set -eu
+      d=/usr/local/share/xray
+      for f in geoip.dat geosite.dat; do
+        curl -fsSL --retry 3 -o "$d/$f.new" "{{ xray_geo_release_url }}/$f" && mv "$d/$f.new" "$d/$f"
+      done
+      systemctl restart xray
+
+- name: Geo updater timer
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: xray-geo-update.service
+      content: |
+        [Unit]
+        Description=Refresh Xray geo data
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/bin/xray-geo-update
+    - name: xray-geo-update.timer
+      content: |
+        [Unit]
+        Description=Weekly Xray geo data refresh
+        [Timer]
+        OnCalendar=Sun *-*-* 04:30:00
+        RandomizedDelaySec=1h
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+
+- name: xray systemd unit
+  ansible.builtin.template:
+    src: xray.service.j2
+    dest: /etc/systemd/system/xray.service
+    mode: "0644"
+  notify: restart xray
+
+- name: xray configuration
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: /usr/local/etc/xray/config.json
+    owner: root
+    group: xray
+    mode: "0640"
+    validate: "/bin/sh -c 'XRAY_LOCATION_ASSET=/usr/local/share/xray /usr/local/bin/xray run -test -config %s'"
+  notify: restart xray
+
+- name: xray and geo timer enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    daemon_reload: true
+    enabled: true
+    state: started
+  loop:
+    - xray
+    - xray-geo-update.timer

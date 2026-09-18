@@ -1,0 +1,27 @@
+{% set p = awg_msk %}
+{% set msk_host = hostvars[groups['msk'][0]].ansible_host %}
+[Interface]
+Address = {{ awg_msk_client_ip }}/24
+PrivateKey = {{ msk_link.private_key }}
+MTU = {{ awg_mtu - 80 }}
+Table = off
+Jc = {{ p.jc }}
+Jmin = {{ p.jmin }}
+Jmax = {{ p.jmax }}
+S1 = {{ p.s1 }}
+S2 = {{ p.s2 }}
+H1 = {{ p.h1 }}
+H2 = {{ p.h2 }}
+H3 = {{ p.h3 }}
+H4 = {{ p.h4 }}
+I1 = {{ p.i1 }}
+PostUp = ip rule add fwmark {{ msk_fwmark }} table {{ msk_route_table }} priority 100; ip route add default dev %i table {{ msk_route_table }}
+PostDown = ip rule del fwmark {{ msk_fwmark }} table {{ msk_route_table }} priority 100; ip route flush table {{ msk_route_table }}
+
+[Peer]
+# Moscow node
+PublicKey = {{ p.public_key }}
+PresharedKey = {{ msk_link.psk }}
+AllowedIPs = 0.0.0.0/0
+Endpoint = {{ msk_host }}:{{ awg_port }}
+PersistentKeepalive = 25

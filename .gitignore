@@ -1,0 +1,14 @@
+# secrets and generated client material never leave this machine
+secrets/
+clients/out/
+*.conf
+!ansible/**/*.conf.j2
+.venv/
+__pycache__/
+*.retry
+.DS_Store
+tests/bin/
+tests/out/
+
+# local inventory (copy of hosts.example.yml with real IPs)
+inventory/hosts.yml

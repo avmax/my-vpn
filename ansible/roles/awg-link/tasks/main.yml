@@ -1,0 +1,21 @@
+---
+# Client-side AmneziaWG interface on the EU node towards the Moscow node. No default route is
+# installed (Table = off); Xray marks "abroad" RU-bound flows with msk_fwmark and a policy
+# rule sends those, and only those, through awg-msk.
+- name: Fail if no msk host is defined
+  ansible.builtin.assert:
+    that: groups['msk'] | default([]) | length > 0
+    fail_msg: "msk_link_enabled is true but inventory group 'msk' is empty"
+
+- name: awg-msk configuration
+  ansible.builtin.template:
+    src: awg-msk.conf.j2
+    dest: /etc/amnezia/amneziawg/awg-msk.conf
+    mode: "0600"
+  notify: restart awg-msk
+
+- name: awg-msk enabled
+  ansible.builtin.systemd:
+    name: awg-quick@awg-msk
+    enabled: true
+    state: started

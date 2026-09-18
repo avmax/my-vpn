@@ -1,0 +1,75 @@
+---
+# Caddy serves the real cover website (Reality "steal oneself" target) on the loopback https port,
+# answers ACME HTTP-01 on :80, hosts the private subscription files and reverse-proxies the
+# XHTTP path to Xray. Port 443 belongs to Xray; non-Reality TLS on 443 is forwarded here.
+- name: Caddy apt key
+  ansible.builtin.shell: |
+    set -e
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Caddy apt repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    filename: caddy-stable
+    state: present
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    state: present
+    update_cache: true
+
+- name: Site directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: caddy
+    group: caddy
+    mode: "0755"
+  loop:
+    - /var/www/site
+    - /var/www/sub
+
+- name: Cover site content
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: /var/www/site/index.html
+    owner: caddy
+    group: caddy
+    mode: "0644"
+
+- name: robots.txt (keep the cover site out of search engines)
+  ansible.builtin.copy:
+    dest: /var/www/site/robots.txt
+    owner: caddy
+    group: caddy
+    mode: "0644"
+    content: |
+      User-agent: *
+      Disallow: /
+
+- name: Subscription files (generated locally by clients/gen.py; absent on first run is fine)
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/var/www/sub/{{ item | basename }}"
+    owner: caddy
+    group: caddy
+    mode: "0644"
+  with_fileglob:
+    - "{{ playbook_dir }}/../clients/out/sub/*"
+
+- name: Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    mode: "0644"
+    validate: "caddy validate --config %s --adapter caddyfile"
+  notify: reload caddy
+
+- name: Caddy enabled
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started

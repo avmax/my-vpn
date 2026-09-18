@@ -1,0 +1,60 @@
+# Non-secret configuration shared by every server. Secrets live in secrets/secrets.yml (generated, gitignored).
+vpn_domain: "eu.example.com"          # A record -> EU VPS. Set your real hostname here.
+acme_email: "admin@example.com"
+
+# Pinned versions (bump deliberately; see README "Upgrading").
+xray_version: "26.7.28"               # v26.9.8+ needs MLKEM-capable clients; keep until Happ/XKeen catch up
+xray_geo_release_url: "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download"
+
+# Ports
+xray_reality_port: 443
+caddy_internal_port: 8443             # cover site, loopback only; Reality dest
+caddy_http_port: 80                   # ACME HTTP-01 + redirect, looks like a normal website
+xhttp_internal_port: 2080             # loopback; Caddy reverse-proxies /<xhttp_path>/ here
+awg_port: 51820                       # UDP; change per server if you like (Keenetic 2.0 peer)
+awg_subnet: "10.8.0.0/24"
+awg_server_ip: "10.8.0.1"
+awg_mtu: 1380
+
+# EU <-> MSK link (Phase 4). Enabled per host with msk_link_enabled: true in inventory.
+msk_link_enabled: false
+awg_msk_port: 51821
+awg_msk_subnet: "10.9.0.0/24"
+awg_msk_server_ip: "10.9.0.1"        # on the msk node
+awg_msk_client_ip: "10.9.0.2"        # on the eu node
+msk_fwmark: 42
+msk_route_table: 42
+
+# Users. Each entry becomes a VLESS client (home + abroad UUIDs are separate users) and an AWG peer.
+vpn_devices:
+  - name: mac
+    awg_ip: "10.8.0.11"
+    msk_awg_ip: "10.9.0.11"
+    abroad: true
+  - name: iphone
+    awg_ip: "10.8.0.12"
+    msk_awg_ip: "10.9.0.12"
+    abroad: true
+  - name: keenetic
+    awg_ip: "10.8.0.13"
+    msk_awg_ip: ""
+    abroad: false
+
+# Ruleset used for the server-side "abroad" routing (RU -> msk) and copied to clients.
+ru_domain_rules:
+  - "geosite:category-ru"
+  - "regexp:\\.(ru|su|xn--p1ai)$"
+ru_ip_rules:
+  - "geoip:ru"
+
+block_bittorrent: true
+sshd_port: 22
+test_mode: false                      # true during Phase 1: opens iperf3 on the AWG interface
+
+# Public key installed on every server before password logins are disabled.
+ssh_pubkey_path: "~/.ssh/id_ed25519.pub"
+
+# Phase 1 only: a plain-WireGuard interface (all obfuscation off) as the negative control.
+awg_control_port: 51830
+awg_control_subnet: "10.10.0.0/24"
+awg_control_server_ip: "10.10.0.1"

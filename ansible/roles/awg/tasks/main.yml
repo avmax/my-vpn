@@ -1,0 +1,53 @@
+---
+# AmneziaWG server on awg0. On 'eu' it serves the devices (10.8.0.0/24); on 'msk' it serves the
+# devices' Moscow profiles plus the EU node's link peer (10.9.0.0/24).
+- name: Amnezia PPA (Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: ppa:amnezia/ppa
+    state: present
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Kernel headers for the DKMS module
+  ansible.builtin.apt:
+    name: "linux-headers-{{ ansible_kernel }}"
+    state: present
+  failed_when: false
+
+- name: AmneziaWG kernel module and tools
+  ansible.builtin.apt:
+    name:
+      - amneziawg
+      - amneziawg-tools
+    state: present
+    update_cache: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: awg0 configuration
+  ansible.builtin.template:
+    src: awg0.conf.j2
+    dest: /etc/amnezia/amneziawg/awg0.conf
+    mode: "0600"
+  notify: restart awg0
+
+- name: awg0 enabled
+  ansible.builtin.systemd:
+    name: awg-quick@awg0
+    enabled: true
+    state: started
+
+- name: Plain WireGuard control interface (test_mode only, eu nodes)
+  ansible.builtin.template:
+    src: awg-control.conf.j2
+    dest: /etc/amnezia/amneziawg/awg-control.conf
+    mode: "0600"
+  when: test_mode | bool and site_role == 'eu'
+  notify: restart awg-control
+
+- name: awg-control state follows test_mode
+  ansible.builtin.systemd:
+    name: awg-quick@awg-control
+    enabled: "{{ test_mode | bool }}"
+    state: "{{ 'started' if test_mode | bool else 'stopped' }}"
+  when: site_role == 'eu'
+  failed_when: false

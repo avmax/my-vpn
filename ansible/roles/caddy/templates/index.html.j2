@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Home lab notes</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.6 system-ui, sans-serif; max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.6rem; }
+  code { background: rgba(127,127,127,.15); padding: .1em .3em; border-radius: 4px; }
+  footer { margin-top: 3rem; font-size: .85rem; opacity: .7; }
+</style>
+</head>
+<body>
+<h1>Home lab notes</h1>
+<p>Working notes on a small home network: a router, a NAS, a couple of Raspberry Pis and too many cables.
+Nothing here is polished; these are reminders to myself.</p>
+<h2>Backups</h2>
+<p>Nightly <code>restic</code> snapshots of the NAS to an external drive, weekly check with
+<code>restic check --read-data-subset=5%</code>. Restores tested once a quarter.</p>
+<h2>Monitoring</h2>
+<p>Uptime probes every minute, alerts only after three consecutive failures. Anything noisier gets ignored anyway.</p>
+<h2>Reading list</h2>
+<ul>
+  <li>RFC 9000 (QUIC) sections 5–7</li>
+  <li>The systemd hardening options man page, <code>systemd.exec(5)</code></li>
+  <li>Notes on BBR vs CUBIC on lossy links</li>
+</ul>
+<footer>Last edited {{ ansible_date_time.date }}.</footer>
+</body>
+</html>

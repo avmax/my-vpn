@@ -1,0 +1,27 @@
+{# Plain WireGuard on the wire (H1..H4 = 1..4, no junk). Exists only while test_mode is true. #}
+{% set wan = ansible_default_ipv4.interface %}
+[Interface]
+Address = {{ awg_control_server_ip }}/24
+ListenPort = {{ awg_control_port }}
+PrivateKey = {{ awg_control.private_key }}
+MTU = {{ awg_mtu }}
+Jc = 0
+Jmin = 0
+Jmax = 0
+S1 = 0
+S2 = 0
+H1 = 1
+H2 = 2
+H3 = 3
+H4 = 4
+PostUp = iptables -I FORWARD -i %i -j ACCEPT; iptables -I FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -s {{ awg_control_subnet }} -o {{ wan }} -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -s {{ awg_control_subnet }} -o {{ wan }} -j MASQUERADE
+
+{% for d in vpn_devices %}
+[Peer]
+# {{ d.name }}
+PublicKey = {{ device_secrets[d.name].awg_eu.public_key }}
+PresharedKey = {{ device_secrets[d.name].awg_eu.psk }}
+AllowedIPs = {{ d.awg_ip | replace('10.8.', '10.10.') }}/32
+
+{% endfor %}
