@@ -12,7 +12,7 @@ SAMPLE_MB="${SAMPLE_MB:-30}"
 CURL="curl -s --max-time 25"
 
 say() { printf '%s\n' "$*" | tee -a "$out"; }
-row() { printf '| %s |\n' "$(IFS='|'; echo "$*")" | tee -a "$out"; }
+row() { local IFS='|'; printf '| %s |\n' "$(printf '%s | ' "$@" | sed 's/ | $//')" | tee -a "$out"; }
 
 say "# Recon: $label, $(date)"
 say ""
