@@ -12,6 +12,8 @@ ovh|gravelines|proof.ovh.net|https://proof.ovh.net/files/100Mb.dat|control
 scaleway|paris|ping.online.net|http://ping.online.net/100Mo.dat|control
 # Candidate hosters: their public looking-glass URLs change; fill in from each provider's "looking glass" page
 # before running (HostKey, Timeweb Cloud, VDSina, 4VPS, is*hosting, RuVDS). Lines without a URL are pinged only.
-hostkey|helsinki|hostkey.com||candidate
+hostkey|helsinki|spd-fisrv.hostkey.com|http://spd-fisrv.hostkey.com/files/100mb.bin|candidate
+hostkey|amsterdam|spd-nlsrv.hostkey.com|http://spd-nlsrv.hostkey.com/files/100mb.bin|candidate
+hostkey|germany|spd-desrv.hostkey.com|http://spd-desrv.hostkey.com/files/100mb.bin|candidate
 timeweb|amsterdam|timeweb.cloud||candidate
 vdsina|amsterdam|vdsina.ru||candidate
