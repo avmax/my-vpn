@@ -105,6 +105,7 @@ Set `msk_link_enabled: true` in group_vars to make it permanent. Test from home 
 - Server exposes only 80/tcp (real site + ACME), 443/tcp (Reality, real site to everyone else), one UDP port (AWG), key-only SSH.
 
 ## Known limits
+- Home ISP is MGTS with native IPv6: the router phase must switch IPv6 off (or proxy it), otherwise AAAA-enabled foreign sites leak past the tunnel.
 - Mobile "whitelist" shutdowns: no foreign server is reachable, by design of the shutdown.
 - Russian platforms degrade users seen from foreign IPs: keep Split as the default.
 - KN-1010/1011 Gigas top out around 250–300 Mbps through XKeen.

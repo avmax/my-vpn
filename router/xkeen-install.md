@@ -10,6 +10,9 @@ EU node over VLESS-Reality. One switch for the whole house: `vpn-mode on|off`.
 3. Router DNS: enable DNS-over-TLS/HTTPS profiles (Internet → DNS). XKeen requires encrypted DNS on the router.
 4. Move the web UI off port 443 (System → Access): XKeen TProxy needs 443 free.
 5. Entware SSH: `ssh root@192.168.1.1 -p 222`.
+6. **IPv6**: the home ISP (MGTS) hands out IPv6 to LAN clients (seen 2026-09-19). Any foreign site with an AAAA record would then bypass the
+   tunnel over IPv6. Disable IPv6 on the ISP connection in the Keenetic UI (Internet → connection → IPv6 off) or use XKeen's IPv6 handling;
+   verify with `curl -6 https://ifconfig.co` from a LAN device: it must fail.
 
 ## 1. XKeen 2.0 (jameszeroX fork)
 ```sh
