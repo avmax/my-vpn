@@ -18,6 +18,7 @@ sync() {
   $SSH "mkdir -p $D"
   rsync -az --delete --exclude '.git' --exclude '.venv' --exclude 'secrets' --exclude 'tests/bin' --exclude 'tests/out' \
         --exclude 'clients/out' ./ "$T:$D/"
+  $SSH "mkdir -p $D/clients/out/test $D/tests/bin $D/tests/out"
   # only the local Xray *test* client configs go over (no keys, no AWG confs)
   if [ -d clients/out/test ]; then rsync -az --delete clients/out/test/ "$T:$D/clients/out/test/"; fi
   # the pinned Xray binary + geo files, so the test Mac never needs GitHub
