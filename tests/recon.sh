@@ -14,6 +14,16 @@ CURL="curl -s --max-time 25"
 say() { printf '%s\n' "$*" | tee -a "$out"; }
 row() { local IFS='|'; printf '| %s |\n' "$(printf '%s | ' "$@" | sed 's/ | $//')" | tee -a "$out"; }
 
+if [ -n "${WAIT_NOT_IP:-}" ]; then
+  # detached mobile run: wait (up to 15 min) until the public IP is no longer the home one, i.e. the hotspot is active
+  echo "waiting until public IP != $WAIT_NOT_IP (tether this Mac to the iPhone now)"
+  for i in $(seq 1 90); do
+    cur=$(curl -4 -s --max-time 5 https://ipinfo.io/ip || true)
+    [ -n "$cur" ] && [ "$cur" != "$WAIT_NOT_IP" ] && break
+    sleep 10
+  done
+  echo "network changed: public IP now ${cur:-unknown}; starting"
+fi
 say "# Recon: $label, $(date)"
 say ""
 if netstat -rn -f inet 2>/dev/null | grep -qE '^0/1 .*utun|^128\.0/1 .*utun'; then

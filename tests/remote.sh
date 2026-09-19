@@ -41,7 +41,12 @@ run() {   # run <script> <args...>; honours --detached anywhere in args
 
 case "${1:-}" in
   sync)    sync ;;
-  recon)   shift; sync >/dev/null; run recon.sh "$@" ;;
+  recon)   shift; sync >/dev/null
+           if [ "${2:-}" = "--wait" ] || [ "${3:-}" = "--wait" ]; then
+             set -- $(printf '%s\n' "$@" | grep -v -- '--wait')
+             cur=$($SSH "curl -4 -s --max-time 8 https://ipinfo.io/ip")
+             run "WAIT_NOT_IP=$cur recon.sh" "$@"
+           else run recon.sh "$@"; fi ;;
   matrix)  shift; sync >/dev/null
            srv="$1"; ip=$(.venv/bin/python -c "import yaml; h=yaml.safe_load(open('inventory/hosts.yml'))['all']['children']; print(next(v['ansible_host'] for g in h.values() for k,v in (g.get('hosts') or {}).items() if k=='$srv'))")
            run "SERVER_IP=$ip matrix.sh" "$@" ;;
