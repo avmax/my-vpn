@@ -1,24 +1,17 @@
-# One-tap mode switching with Apple Shortcuts
+# One-tap switches with Apple Shortcuts
 
-## iPhone and Mac: Happ routing profiles
-`clients/gen.py` writes `clients/out/happ/routing-{split,full}.deeplink.txt`. Create one Shortcut per mode:
-1. Shortcuts → + → add action **Open URLs** → paste the `happ://routing/onadd/...` link.
-2. Name it "VPN Split" / "VPN Full"; add to Home Screen / menu bar; optionally an Action Button binding.
-Opening the link makes Happ import the profile (if new) and activate it. "Abroad" = select the `... ABROAD` server entry in Happ and keep the Full profile.
+## Whole-home VPN on/off (router)
+Shortcut → action **Run Script Over SSH**: host `192.168.1.1`, port `222`, user `root`, script `vpn-mode on` (second Shortcut: `vpn-mode off`,
+third: `vpn-mode status`). Add to Home Screen / menu bar / Action Button. Works from any device on the home Wi-Fi.
 
-## Router (per device) from the phone or Mac
-Shortcut with action **Run Script Over SSH** → host: the Mac (or any always-on box) → script:
-```
-/Users/avmax/Code/avmax-personal-vpn/router/keenetic-policy.sh tv full
-```
-Credentials come from `~/.config/keenetic.env` on that host:
-```
-KEENETIC_USER=admin
-KEENETIC_PASS=...
-POLICY_SPLIT=Policy0   # id of policy "xkeen" (router/keenetic-policy.sh --list)
-POLICY_FULL=Policy1    # id of policy "Full"
-```
-Alternative without SSH: the Keenetic mobile app → device → Internet access policy (drag between policies).
+## Mac / iPhone away from home: nothing to tap
+Shadowrocket's On Demand rules do it: Settings → On Demand → add rules
+1. **Cellular → Connect**
+2. **Wi-Fi, SSID = <home SSID> → Disconnect** (the router handles home)
+3. **Wi-Fi, SSID keyword `*` (any other) → Connect**
+With On Demand enabled the system VPN switch will not stay off; to pause the VPN temporarily, toggle On Demand in the app.
+Abroad: open Shadowrocket and pick the `... ABROAD` server entry (Russian sites will exit from the Moscow node).
 
-## Router (whole XKeen ruleset)
-Run Script Over SSH → host `192.168.1.1`, port 222, user root → `vpn-mode full` or `vpn-mode split`.
+## Optional per-device exception on the router
+`router/keenetic-policy.sh <device> default` moves a device out of XKeen's reach by assigning a Keenetic policy without the proxy
+(needs a policy created in the UI and `POLICY_SPLIT`/`POLICY_FULL` in `~/.config/keenetic.env`); simpler: add its LAN IP to `ip_exclude.lst`.

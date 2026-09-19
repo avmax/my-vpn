@@ -58,3 +58,9 @@ ssh_pubkey_path: "~/.ssh/id_ed25519.pub"
 awg_control_port: 51830
 awg_control_subnet: "10.10.0.0/24"
 awg_control_server_ip: "10.10.0.1"
+
+# rules/custom.json overrides are applied server-side too (abroad users: custom "direct" = Russian = via Moscow link).
+custom_rules: "{{ lookup('file', playbook_dir + '/../rules/custom.json') | from_json }}"
+
+# Keenetic policy code for the native-AWG fallback outbound in XKeen (from `xkeen -pbr codes`); null = not generated.
+xkeen_awg_mark: null

@@ -1,0 +1,6 @@
+{
+  "_comment": "Explicit overrides, first match wins, applied on the router, Shadowrocket, Happ and (for abroad) the server. Entries: 'example.com' (domain and subdomains), 'full:host.example.com' (exact), 'geosite:tag', or a CIDR like '1.2.3.0/24'. Use rules/expand.py to grow these lists.",
+  "direct": [],
+  "proxy": [],
+  "block": []
+}

@@ -74,8 +74,11 @@
     "rules": [
       { "ip": [ "geoip:private" ], "outboundTag": "block" }{% if block_bittorrent | bool %},
       { "protocol": [ "bittorrent" ], "outboundTag": "block" }{% endif %}{% if msk_link_enabled | bool and ns.abroad_users %},
-      { "user": {{ ns.abroad_users | to_json }}, "domain": {{ ru_domain_rules | to_json }}, "outboundTag": "msk" },
-      { "user": {{ ns.abroad_users | to_json }}, "ip": {{ ru_ip_rules | to_json }}, "outboundTag": "msk" }{% endif %}
+{%   set cd = custom_rules.direct | default([]) | reject('match', '^_') | list %}
+{%   set cd_ip = cd | select('match', '^\\d+\\.\\d+\\.\\d+\\.\\d+(/\\d+)?$') | list %}
+{%   set cd_dom = cd | reject('match', '^\\d+\\.') | map('regex_replace', '^([^:]+)$', 'domain:\\1') | list %}
+      { "user": {{ ns.abroad_users | to_json }}, "domain": {{ (cd_dom + ru_domain_rules) | to_json }}, "outboundTag": "msk" },
+      { "user": {{ ns.abroad_users | to_json }}, "ip": {{ (cd_ip + ru_ip_rules) | to_json }}, "outboundTag": "msk" }{% endif %}
 
     ]
   }

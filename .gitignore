@@ -12,3 +12,5 @@ tests/out/
 
 # local inventory (copy of hosts.example.yml with real IPs)
 inventory/hosts.yml
+tests/remote.env
+rules/.cache/

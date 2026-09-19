@@ -8,13 +8,14 @@ Per device (mac, iphone, keenetic):
   <dev>/awg-<server>.conf/.png         AmneziaWG config for the EU node (Full mode only)
   <dev>/awg-msk.conf                   direct AmneziaWG profile to the Moscow node (if msk exists)
   <dev>/wg-control-<server>.conf       plain WireGuard control profile (Phase 1 only, test_mode)
-happ/routing-{split,full}.json + .deeplink.txt + .png   Happ routing profiles (one tap each)
+happ/routing-split.json + .deeplink.txt + .png            Happ routing profile (custom overrides + geo)\nsub/shadowrocket.conf, sub/ru-direct.list, shadowrocket-import-url.txt   Shadowrocket rules (served by Caddy)
 sub/<dev>                              subscription body served by Caddy at https://<domain>/s/<token>/<dev>
-keenetic/xkeen/04_outbounds.json, 05_routing_split.json, 05_routing_full.json
+keenetic/xkeen/04_outbounds.json, 05_routing.json (+ _via_reality/_via_awg), ip_exclude.lst
 test/<server>/{reality,reality-chrome,xhttp}.json        local Xray client configs for tests/matrix.sh
 """
 import base64
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -22,6 +23,8 @@ from urllib.parse import quote
 
 import qrcode
 import yaml
+
+import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "clients" / "out"
@@ -31,6 +34,103 @@ GEOSITE_URL = "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/l
 RU_DOMAINS = ["geosite:private", "geosite:category-ru", "geosite:ru-available-only-inside",
               "domain:ru", "domain:su", "domain:xn--p1ai"]
 RU_IPS = ["geoip:private", "geoip:ru"]
+RULES = ROOT / "rules" / "custom.json"
+V2FLY_RAW = "https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/"
+CACHE = ROOT / "rules" / ".cache"
+
+
+def load_rules():
+    r = json.loads(RULES.read_text()) if RULES.exists() else {}
+    return {k: [x for x in r.get(k, []) if not x.startswith("_")] for k in ("direct", "proxy", "block")}
+
+
+def is_cidr(x):
+    return bool(re.match(r"^\d+\.\d+\.\d+\.\d+(/\d+)?$", x))
+
+
+def xray_domain(x):
+    """custom.json entry -> xray domain rule ('example.com' means domain+subdomains)."""
+    return x if x.startswith(("geosite:", "full:", "domain:", "regexp:", "keyword:")) else f"domain:{x}"
+
+
+def split_rules(entries):
+    ips = [e for e in entries if is_cidr(e)]
+    doms = [xray_domain(e) for e in entries if not is_cidr(e)]
+    return doms, ips
+
+
+def v2fly_list(name, seen=None):
+    """Resolve a v2fly data file (with include:) into plain domain suffixes; cached in rules/.cache."""
+    seen = seen if seen is not None else set()
+    if name in seen:
+        return []
+    seen.add(name)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    f = CACHE / name
+    if not f.exists():
+        with urllib.request.urlopen(V2FLY_RAW + name, timeout=30) as r:
+            f.write_bytes(r.read())
+    out = []
+    for line in f.read_text().splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("include:"):
+            out += v2fly_list(line.split(":", 1)[1].strip(), seen)
+        elif line.startswith("full:"):
+            out.append(line.split(":", 1)[1].split("@")[0].strip())
+        elif line.startswith(("regexp:", "keyword:")):
+            continue
+        else:
+            out.append(line.split("@")[0].strip())
+    return out
+
+
+def shadowrocket_conf(list_url):
+    rules = load_rules()
+    lines = ["[General]",
+             "bypass-system = true",
+             "skip-proxy = 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, localhost, *.local, captive.apple.com",
+             "tun-excluded-routes = 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 255.255.255.255/32",
+             "dns-server = system",
+             "ipv6 = false",
+             "",
+             "[Rule]"]
+    def sr(entry, action):
+        if is_cidr(entry):
+            return f"IP-CIDR,{entry if '/' in entry else entry + '/32'},{action},no-resolve"
+        if entry.startswith("full:"):
+            return f"DOMAIN,{entry[5:]},{action}"
+        if entry.startswith("domain:"):
+            return f"DOMAIN-SUFFIX,{entry[7:]},{action}"
+        if entry.startswith("keyword:"):
+            return f"DOMAIN-KEYWORD,{entry[8:]},{action}"
+        if entry.startswith("geosite:"):
+            return f"# geosite:{entry[8:]} is expanded into ru-direct.list when it is a v2fly category"
+        return f"DOMAIN-SUFFIX,{entry},{action}"
+    lines += [sr(e, "REJECT") for e in rules["block"]]
+    lines += [sr(e, "DIRECT") for e in rules["direct"]]
+    lines += [sr(e, "PROXY") for e in rules["proxy"]]
+    lines += [f"RULE-SET,{list_url},DIRECT",
+              "DOMAIN-SUFFIX,ru,DIRECT", "DOMAIN-SUFFIX,su,DIRECT", "DOMAIN-SUFFIX,xn--p1ai,DIRECT",
+              "GEOIP,RU,DIRECT,no-resolve",
+              "FINAL,PROXY",
+              "", "[Host]", "localhost = 127.0.0.1", ""]
+    return "\n".join(lines)
+
+
+def ru_direct_list():
+    """Surge/Shadowrocket rule-set: Russian services from v2fly category-ru + custom geosite:* direct entries."""
+    rules = load_rules()
+    names = ["category-ru"] + [e[8:] for e in rules["direct"] if e.startswith("geosite:")]
+    doms = []
+    for n in names:
+        try:
+            doms += v2fly_list(n)
+        except Exception as ex:  # offline: keep going with what we have
+            print(f"warning: could not fetch v2fly list {n}: {ex}", file=sys.stderr)
+    doms = sorted(set(d for d in doms if d and "/" not in d))
+    return "\n".join(f"DOMAIN-SUFFIX,{d}" for d in doms) + "\n"
 
 
 def load_yaml(p):
@@ -151,7 +251,11 @@ def xray_client(ip, uuid, v, sec, transport, fp, socks_port):
 
 
 def xkeen_outbounds(ip, uuid, sid, v, sec):
-    return {"outbounds": [
+    awg = []
+    if v.get("xkeen_awg_mark"):
+        awg = [{"tag": "awg-out", "protocol": "freedom", "settings": {"domainStrategy": "UseIPv4"},
+                "streamSettings": {"sockopt": {"mark": int(v["xkeen_awg_mark"])}}}]
+    return {"outbounds": awg + [
         {"tag": "vless-reality", "protocol": "vless",
          "settings": {"vnext": [{"address": ip, "port": v["xray_reality_port"],
                                  "users": [{"id": uuid, "encryption": "none", "flow": "xtls-rprx-vision"}]}]},
@@ -164,16 +268,21 @@ def xkeen_outbounds(ip, uuid, sid, v, sec):
     ]}
 
 
-def xkeen_routing(split):
+def xkeen_routing(proxy_tag="vless-reality"):
+    """custom overrides -> automatic geo -> everything else via proxy_tag."""
+    r = load_rules()
+    b_dom, b_ip = split_rules(r["block"]); d_dom, d_ip = split_rules(r["direct"]); p_dom, p_ip = split_rules(r["proxy"])
     rules = []
-    if split:
-        rules.append({"domain": RU_DOMAINS, "outboundTag": "direct"})
-        rules.append({"ip": RU_IPS, "outboundTag": "direct"})
-    else:
-        rules.append({"domain": ["geosite:private"], "outboundTag": "direct"})
-        rules.append({"ip": ["geoip:private"], "outboundTag": "direct"})
+    if b_dom: rules.append({"domain": b_dom, "outboundTag": "block"})
+    if b_ip: rules.append({"ip": b_ip, "outboundTag": "block"})
+    if d_dom: rules.append({"domain": d_dom, "outboundTag": "direct"})
+    if d_ip: rules.append({"ip": d_ip, "outboundTag": "direct"})
+    if p_dom: rules.append({"domain": p_dom, "outboundTag": proxy_tag})
+    if p_ip: rules.append({"ip": p_ip, "outboundTag": proxy_tag})
+    rules.append({"domain": RU_DOMAINS, "outboundTag": "direct"})
+    rules.append({"ip": RU_IPS, "outboundTag": "direct"})
     rules.append({"protocol": ["bittorrent"], "outboundTag": "direct"})
-    rules.append({"network": "tcp,udp", "outboundTag": "vless-reality"})
+    rules.append({"network": "tcp,udp", "outboundTag": proxy_tag})
     return {"routing": {"domainStrategy": "IPIfNonMatch", "rules": rules}}
 
 
@@ -195,13 +304,22 @@ def main():
     devices = {d["name"]: d for d in v["vpn_devices"]}
     port = v["xray_reality_port"]
 
-    # Happ routing profiles (device independent)
-    for mode, ds, di in (("split", RU_DOMAINS, RU_IPS), ("full", ["geosite:private"], ["geoip:private"])):
-        prof = happ_profile(f"avmax {mode}", ds, di)
-        link = happ_deeplink(prof)
-        write(OUT / "happ" / f"routing-{mode}.json", json.dumps(prof, indent=2, ensure_ascii=False) + "\n")
-        write(OUT / "happ" / f"routing-{mode}.deeplink.txt", link + "\n")
-        qr(OUT / "happ" / f"routing-{mode}.png", link)
+    # Happ routing profile (split only; custom overrides first, then geo)
+    rules = load_rules()
+    d_dom, d_ip = split_rules(rules["direct"]); p_dom, p_ip = split_rules(rules["proxy"]); b_dom, b_ip = split_rules(rules["block"])
+    prof = happ_profile("avmax split", d_dom + RU_DOMAINS, d_ip + RU_IPS)
+    prof.update({"ProxySites": p_dom, "ProxyIp": p_ip, "BlockSites": b_dom, "BlockIp": b_ip})
+    link = happ_deeplink(prof)
+    write(OUT / "happ" / "routing-split.json", json.dumps(prof, indent=2, ensure_ascii=False) + "\n")
+    write(OUT / "happ" / "routing-split.deeplink.txt", link + "\n")
+    qr(OUT / "happ" / "routing-split.png", link)
+
+    # Shadowrocket: rules file + RU rule-set, both served by Caddy next to the subscriptions
+    sub_base = f"https://{v['vpn_domain']}/s/{sec['sub_token']}/"
+    write(OUT / "sub" / "ru-direct.list", ru_direct_list())
+    write(OUT / "sub" / "shadowrocket.conf", shadowrocket_conf(sub_base + "ru-direct.list"))
+    write(OUT / "shadowrocket-import-url.txt",
+          f"shadowrocket://config/add/{sub_base}shadowrocket.conf\n")
 
     for name, d in devices.items():
         ds = sec["device_secrets"][name]
@@ -238,8 +356,10 @@ def main():
     kd = sec["device_secrets"]["keenetic"]
     write(OUT / "keenetic/xkeen/04_outbounds.json",
           json.dumps(xkeen_outbounds(primary_ip, kd["uuid_home"], kd["reality_short_id"], v, sec), indent=2) + "\n")
-    write(OUT / "keenetic/xkeen/05_routing_split.json", json.dumps(xkeen_routing(True), indent=2) + "\n")
-    write(OUT / "keenetic/xkeen/05_routing_full.json", json.dumps(xkeen_routing(False), indent=2) + "\n")
+    write(OUT / "keenetic/xkeen/05_routing.json", json.dumps(xkeen_routing(), indent=2) + "\n")
+    write(OUT / "keenetic/xkeen/05_routing_via_reality.json", json.dumps(xkeen_routing(), indent=2) + "\n")
+    write(OUT / "keenetic/xkeen/05_routing_via_awg.json", json.dumps(xkeen_routing("awg-out"), indent=2) + "\n")
+    write(OUT / "keenetic/xkeen/ip_exclude.lst", "\n".join(split_rules(load_rules()["direct"])[1]) + "\n")
 
     # Local Xray client configs for the Phase 1 matrix (mac's home UUID)
     md = sec["device_secrets"]["mac"]

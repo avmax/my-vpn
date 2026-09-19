@@ -13,5 +13,6 @@ scaleway|paris|ping.online.net|http://ping.online.net/100Mo.dat|control
 hostkey|helsinki|spd-fisrv.hostkey.com|http://spd-fisrv.hostkey.com/files/100mb.bin|candidate
 hostkey|amsterdam|spd-nlsrv.hostkey.com|http://spd-nlsrv.hostkey.com/files/100mb.bin|candidate
 hostkey|germany|spd-desrv.hostkey.com|http://spd-desrv.hostkey.com/files/100mb.bin|candidate
-timeweb|amsterdam|timeweb.cloud||candidate
-vdsina|amsterdam|vdsina.ru||candidate
+vdsina|amsterdam|vdsina.com||candidate
+upcloud|helsinki|upcloud.com||candidate
+melbicom|riga|melbicom.com||candidate
