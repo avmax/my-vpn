@@ -47,18 +47,12 @@ say ""
 
 say "## UDP reachability (STUN binding to foreign servers; this is the path WireGuard/AWG would use)"
 say '```'
-python3 - <<'PY' | tee -a "$out"
-import socket, struct, os, time
-for host, port in (("stun.l.google.com", 19302), ("stun.cloudflare.com", 3478), ("stun.nextcloud.com", 3478)):
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(3)
-        tid = os.urandom(12)
-        s.sendto(struct.pack("!HHI", 0x0001, 0, 0x2112A442) + tid, (host, port))
-        t = time.time(); data, _ = s.recvfrom(1024); rtt = (time.time() - t) * 1000
-        print(f"{host}:{port}  OK  {len(data)} bytes  {rtt:.0f} ms")
-    except Exception as e:
-        print(f"{host}:{port}  FAIL  {e}")
-PY
+for hp in stun.l.google.com:19302 stun.cloudflare.com:3478 stun.nextcloud.com:3478; do
+  h=${hp%%:*}; port=${hp##*:}
+  # 20-byte STUN Binding Request: type 0x0001, length 0, magic cookie, 12-byte transaction id
+  n=$( { printf '\x00\x01\x00\x00\x21\x12\xa4\x42'; head -c 12 /dev/urandom; } | nc -u -w 3 "$h" "$port" 2>/dev/null | wc -c | tr -d ' ')
+  if [ "${n:-0}" -gt 0 ]; then say "$hp  OK  reply ${n} bytes"; else say "$hp  FAIL  no UDP reply in 3 s"; fi
+done
 say '```'
 say ""
 

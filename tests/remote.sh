@@ -29,17 +29,21 @@ run() {   # run <script> <args...>; honours --detached anywhere in args
   local script="$1"; shift; local detached=0 args=()
   for a in "$@"; do [ "$a" = "--detached" ] && detached=1 || args+=("$a"); done
   if [ $detached = 1 ]; then
-    $SSH "cd $D && mkdir -p tests/out && nohup tests/$script ${args[*]} > tests/out/${script%.sh}-detached.log 2>&1 &" \
+    local envp=""; case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
+    $SSH "cd $D && mkdir -p tests/out && ${envp}nohup tests/$script ${args[*]} > tests/out/${script%.sh}-detached.log 2>&1 &" \
       && echo "started tests/$script ${args[*]} on $T (log: tests/out/${script%.sh}-detached.log). Switch networks now; later: tests/remote.sh collect"
   else
-    ssh -t -o ConnectTimeout=10 "$T" "cd $D && tests/$script ${args[*]}"
+    local envp=""; case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
+    ssh -t -o ConnectTimeout=10 "$T" "cd $D && ${envp}tests/$script ${args[*]}"
   fi
 }
 
 case "${1:-}" in
   sync)    sync ;;
   recon)   shift; sync >/dev/null; run recon.sh "$@" ;;
-  matrix)  shift; sync >/dev/null; run matrix.sh "$@" ;;
+  matrix)  shift; sync >/dev/null
+           srv="$1"; ip=$(.venv/bin/python -c "import yaml; h=yaml.safe_load(open('inventory/hosts.yml'))['all']['children']; print(next(v['ansible_host'] for g in h.values() for k,v in (g.get('hosts') or {}).items() if k=='$srv'))")
+           run "SERVER_IP=$ip matrix.sh" "$@" ;;
   leak)    shift; sync >/dev/null; run leak-check.sh "$@" ;;
   collect) mkdir -p tests/out && rsync -az "$T:$D/tests/out/" tests/out/ && ls -t tests/out | head ;;
   ssh)     shift; ssh -t "$T" "cd $D && ${*:-\$SHELL -l}" ;;

@@ -10,7 +10,9 @@ cd "$(dirname "$0")/.."
 XRAY_VER=$(grep -E '^xray_version' ansible/group_vars/all/main.yml | cut -d'"' -f2)
 mkdir -p tests/bin tests/out
 out="tests/out/matrix-${srv}-${net}-$(date +%Y%m%d-%H%M).md"
-ip=$(.venv/bin/python -c "import yaml,sys; h=yaml.safe_load(open('inventory/hosts.yml'))['all']['children']; print(next(v['ansible_host'] for g in h.values() for k,v in (g.get('hosts') or {}).items() if k=='$srv'))")
+ip="${SERVER_IP:-}"
+[ -z "$ip" ] && [ -x .venv/bin/python ] && ip=$(.venv/bin/python -c "import yaml; h=yaml.safe_load(open('inventory/hosts.yml'))['all']['children']; print(next(v['ansible_host'] for g in h.values() for k,v in (g.get('hosts') or {}).items() if k=='$srv'))")
+[ -z "$ip" ] && { echo "SERVER_IP not set and no local venv to read inventory" >&2; exit 1; }
 STAB_MIN=${STAB_MIN:-45}; [ "$quick" = quick ] && STAB_MIN=3
 BIG_MB=${BIG_MB:-500};   [ "$quick" = quick ] && BIG_MB=50
 DL_URL="https://speed.cloudflare.com/__down?bytes="
