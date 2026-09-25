@@ -154,7 +154,7 @@ def inventory_hosts(inv):
     exits, msk = {}, None
     for g in ("eu", "standby", "eu_candidates"):
         for name, h in (ch.get(g, {}).get("hosts") or {}).items():
-            exits.setdefault(name, h["ansible_host"])
+            exits.setdefault(name, h)
     for name, h in (ch.get("msk", {}).get("hosts") or {}).items():
         msk = h["ansible_host"]
     return exits, msk
@@ -293,13 +293,14 @@ def main():
     if not inv_path.exists():
         print("inventory/hosts.yml missing: copy inventory/hosts.example.yml and fill in server IPs", file=sys.stderr)
         return 1
-    exits, msk_ip = inventory_hosts(load_yaml(inv_path))
+    hosts, msk_ip = inventory_hosts(load_yaml(inv_path))
+    exits = {n: (h["ansible_host"], {**v, **h, "vpn_domain": h.get("reality_server_name", v["vpn_domain"])})
+             for n, h in hosts.items()}
     if not exits:
         print("no exit nodes in inventory (eu / standby / eu_candidates)", file=sys.stderr)
         return 1
     if v["vpn_domain"].endswith("example.com"):
-        print("set vpn_domain in ansible/group_vars/all/main.yml first", file=sys.stderr)
-        return 1
+        print("warning: vpn_domain is still a placeholder; subscription/rules URLs will not resolve", file=sys.stderr)
 
     devices = {d["name"]: d for d in v["vpn_devices"]}
     port = v["xray_reality_port"]
@@ -324,16 +325,16 @@ def main():
     for name, d in devices.items():
         ds = sec["device_secrets"][name]
         sub_lines = []
-        for sname, ip in exits.items():
-            r = reality_uri(ds["uuid_home"], ip, v, sec, ds["reality_short_id"], f"avmax {sname} reality")
-            x = xhttp_uri(ds["uuid_home"], ip, v, sec, f"avmax {sname} xhttp")
+        for sname, (ip, hv) in exits.items():
+            r = reality_uri(ds["uuid_home"], ip, hv, sec, ds["reality_short_id"], f"avmax {sname} reality")
+            x = xhttp_uri(ds["uuid_home"], ip, hv, sec, f"avmax {sname} xhttp")
             write(OUT / name / f"reality-{sname}.txt", r + "\n")
             qr(OUT / name / f"reality-{sname}.png", r)
             write(OUT / name / f"xhttp-{sname}.txt", x + "\n")
             qr(OUT / name / f"xhttp-{sname}.png", x)
             sub_lines += [r, x]
             if d.get("abroad"):
-                a = reality_uri(ds["uuid_abroad"], ip, v, sec, ds["reality_short_id"], f"avmax {sname} ABROAD")
+                a = reality_uri(ds["uuid_abroad"], ip, hv, sec, ds["reality_short_id"], f"avmax {sname} ABROAD")
                 write(OUT / name / f"reality-abroad-{sname}.txt", a + "\n")
                 qr(OUT / name / f"reality-abroad-{sname}.png", a)
                 sub_lines.append(a)
@@ -352,10 +353,10 @@ def main():
         write(OUT / "sub" / name, base64.b64encode("\n".join(sub_lines).encode()).decode() + "\n")
 
     # Keenetic / XKeen files use the primary exit (group eu if present, else first candidate)
-    primary_name, primary_ip = next(iter(exits.items()))
+    primary_name, (primary_ip, primary_hv) = next(iter(exits.items()))
     kd = sec["device_secrets"]["keenetic"]
     write(OUT / "keenetic/xkeen/04_outbounds.json",
-          json.dumps(xkeen_outbounds(primary_ip, kd["uuid_home"], kd["reality_short_id"], v, sec), indent=2) + "\n")
+          json.dumps(xkeen_outbounds(primary_ip, kd["uuid_home"], kd["reality_short_id"], primary_hv, sec), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/05_routing.json", json.dumps(xkeen_routing(), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/05_routing_via_reality.json", json.dumps(xkeen_routing(), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/05_routing_via_awg.json", json.dumps(xkeen_routing("awg-out"), indent=2) + "\n")
@@ -363,13 +364,13 @@ def main():
 
     # Local Xray client configs for the Phase 1 matrix (mac's home UUID)
     md = sec["device_secrets"]["mac"]
-    for sname, ip in exits.items():
+    for sname, (ip, hv) in exits.items():
         write(OUT / "test" / sname / "reality.json",
-              json.dumps(xray_client(ip, md["uuid_home"], v, sec, "reality", "firefox", 1080), indent=2) + "\n")
+              json.dumps(xray_client(ip, md["uuid_home"], hv, sec, "reality", "firefox", 1080), indent=2) + "\n")
         write(OUT / "test" / sname / "reality-chrome.json",
-              json.dumps(xray_client(ip, md["uuid_home"], v, sec, "reality", "chrome", 1082), indent=2) + "\n")
+              json.dumps(xray_client(ip, md["uuid_home"], hv, sec, "reality", "chrome", 1082), indent=2) + "\n")
         write(OUT / "test" / sname / "xhttp.json",
-              json.dumps(xray_client(ip, md["uuid_home"], v, sec, "xhttp", "firefox", 1081), indent=2) + "\n")
+              json.dumps(xray_client(ip, md["uuid_home"], hv, sec, "xhttp", "firefox", 1081), indent=2) + "\n")
 
     sub_url = f"https://{v['vpn_domain']}/s/{sec['sub_token']}/"
     write(OUT / "SUBSCRIPTION-URLS.txt", "".join(f"{n}: {sub_url}{n}\n" for n in devices))

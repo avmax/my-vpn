@@ -12,7 +12,7 @@ say() { printf '%s\n' "$*" | tee -a "$out"; }
 say "# Availability from $srv ($ip), $(date)"
 say ""
 say '```'
-ssh -o ConnectTimeout=15 root@"$ip" 'bash -s' <<'REMOTE' 2>&1 | tee -a "$out"
+ssh -o ConnectTimeout=15 root@"$ip" "UT=${UT:-1} bash -s" <<'REMOTE' 2>&1 | tee -a "$out"
 set -u
 C="curl -s --max-time 20"
 echo "== geolocation =="
@@ -40,7 +40,8 @@ echo "google search status:   $($C -o /dev/null -w '%{http_code} %{redirect_url}
 echo "drive.google.com:       $($C -o /dev/null -w '%{http_code}' https://drive.google.com/)"
 echo
 echo "== UnlockTests (oneclickvirt) =="
-if command -v ut >/dev/null 2>&1 || curl -fsSL --max-time 60 https://raw.githubusercontent.com/oneclickvirt/UnlockTests/main/ut_install.sh | bash >/dev/null 2>&1; then
+if [ "$UT" != 1 ]; then echo "skipped (UT=0)"
+elif command -v ut >/dev/null 2>&1 || curl -fsSL --max-time 60 https://raw.githubusercontent.com/oneclickvirt/UnlockTests/main/ut_install.sh | bash >/dev/null 2>&1; then
   ut -L en -m 4 -region 21 2>/dev/null | head -60 || true
   echo "--- streaming (Europe) ---"
   ut -L en -m 4 -region 2 2>/dev/null | head -60 || true

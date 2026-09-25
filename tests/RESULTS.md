@@ -51,6 +51,19 @@ Hoster reachability over Tinkoff Mobile, 30 MB samples, 2026-09-25 19:58:
 
 Reading: the TSPU-listed controls are dead here too. HostKey and OVH trickle at 0.1-0.9 Mbps instead of freezing, but latency to every host was 130-1000 ms, so this run cannot tell a weak hotspot link from foreign-traffic throttling. A domestic baseline (Yandex mirror) was added to endpoints.txt after this run; the Phase 1 mobile matrix will include it.
 
+## Phase 1: service availability from candidates (tests/availability.sh)
+
+**kz-test** — Timeweb Almaty, AS9123, 92.118.115.34 (shared production box, test only), 2026-09-25, over IPv4:
+
+| check | result | meaning |
+|---|---|---|
+| geolocation | ipinfo KZ, ip-api KZ (flags proxy + hosting), Cloudflare loc=KZ | not seen as Russia |
+| chatgpt.com / claude.ai | 403 `cf-mitigated: challenge` for curl | Cloudflare challenge, not a geo block; verify in a browser through the tunnel |
+| api.anthropic.com | 401 | reachable |
+| Netflix licensed title 70143836 | 200 at /kz/title/… | full KZ catalog, not originals-only |
+| YouTube Premium region | KZ over IPv4, **RU over IPv6** | exit must stay IPv4-only (it is: freedom UseIPv4) |
+| Gemini, Google search, Drive | 200 / 200 / 302 | fine, no captcha |
+
 ## Phase 1: protocol matrix (tests/matrix.sh)
 
 | server (AS) | network | protocol | handshake | TTFB | down / up Mbps | sustained 500 MB | 45-min stability | freeze probe | verdict |

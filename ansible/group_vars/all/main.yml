@@ -10,7 +10,10 @@ xray_geo_release_url: "https://github.com/runetfreedom/russia-v2ray-rules-dat/re
 xray_reality_port: 443
 caddy_internal_port: 8443             # cover site, loopback only; Reality dest
 caddy_http_port: 80                   # ACME HTTP-01 + redirect, looks like a normal website
-xhttp_internal_port: 2080             # loopback; Caddy reverse-proxies /<xhttp_path>/ here
+xhttp_internal_port: 2080
+# Reality imitates this site. Default: our own Caddy cover site ("steal oneself"); a host can override both.
+reality_target: "127.0.0.1:{{ caddy_internal_port }}"
+reality_server_name: "{{ vpn_domain }}"             # loopback; Caddy reverse-proxies /<xhttp_path>/ here
 awg_port: 51820                       # UDP; change per server if you like (Keenetic 2.0 peer)
 awg_subnet: "10.8.0.0/24"
 awg_server_ip: "10.8.0.1"

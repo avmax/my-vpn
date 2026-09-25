@@ -33,9 +33,9 @@
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "target": "127.0.0.1:{{ caddy_internal_port }}",
+          "target": "{{ reality_target }}",
           "xver": 0,
-          "serverNames": [ "{{ vpn_domain }}" ],
+          "serverNames": [ "{{ reality_server_name }}" ],
           "privateKey": "{{ reality_private_key }}",
           "shortIds": {{ ns.short_ids | to_json }}
         }

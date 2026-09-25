@@ -1,0 +1,11 @@
+---
+# Xray alone, nothing else: for shared hosts in group no_deploy (no Caddy, SSH, firewall or sysctl changes).
+#   ansible-playbook xray-only.yml -l kz-test
+# Port and Reality target come from the host's inventory entry. Open the port yourself (see tests/RESULTS.md).
+- name: Xray only
+  hosts: no_deploy
+  become: true
+  vars_files:
+    - ../secrets/secrets.yml
+  roles:
+    - xray

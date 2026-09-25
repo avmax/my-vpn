@@ -1,4 +1,9 @@
 ---
+- name: unzip (needed to unpack the Xray release)
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+
 - name: xray system user
   ansible.builtin.user:
     name: xray
@@ -30,18 +35,12 @@
     mode: "0644"
   when: xray_ver.rc != 0 or ('Xray ' + xray_version) not in xray_ver.stdout
 
-- name: Unpack Xray-core
+- name: Install xray binary (extract only the binary from the release zip)
   ansible.builtin.unarchive:
     src: "/tmp/Xray-linux-64-{{ xray_version }}.zip"
-    dest: "/tmp/xray-{{ xray_version }}"
+    dest: /usr/local/bin
     remote_src: true
-  when: xray_ver.rc != 0 or ('Xray ' + xray_version) not in xray_ver.stdout
-
-- name: Install xray binary
-  ansible.builtin.copy:
-    src: "/tmp/xray-{{ xray_version }}/xray"
-    dest: /usr/local/bin/xray
-    remote_src: true
+    include: [xray]
     mode: "0755"
   when: xray_ver.rc != 0 or ('Xray ' + xray_version) not in xray_ver.stdout
   notify: restart xray

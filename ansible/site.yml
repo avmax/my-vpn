@@ -5,7 +5,7 @@
 #   ansible-playbook site.yml -l msk                  # Moscow node (Phase 4)
 #   ansible-playbook site.yml -l eu -e msk_link_enabled=true   # enable EU->MSK link after msk exists
 - name: Base hardening and AmneziaWG on every node
-  hosts: all
+  hosts: all:!no_deploy
   become: true
   vars_files:
     - ../secrets/secrets.yml
@@ -14,7 +14,7 @@
     - awg
 
 - name: Foreign exit services (cover site, Xray, optional link to Moscow)
-  hosts: eu_candidates:eu:standby
+  hosts: eu_candidates:eu:standby:!no_deploy
   become: true
   vars_files:
     - ../secrets/secrets.yml
