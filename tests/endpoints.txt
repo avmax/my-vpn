@@ -1,3 +1,5 @@
+# Domestic baseline: if this is slow too, the link itself is slow (not TSPU on foreign hosts)
+yandex-mirror|moscow|mirror.yandex.ru|https://mirror.yandex.ru/ubuntu-releases/24.04/ubuntu-24.04.3-live-server-amd64.iso|baseline
 # provider|location|ping_host|download_url|role
 # role: candidate = provider we may rent from; control = expected to be throttled from Russia (TSPU AS lists)
 hetzner|helsinki|hel1-speed.hetzner.com|https://hel1-speed.hetzner.com/100MB.bin|control
