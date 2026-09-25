@@ -20,6 +20,10 @@ EU node over VLESS-Reality. One switch for the whole house: `vpn-mode on|off`.
    ```sh
    ssh -p 222 root@192.168.1.1 'passwd && mkdir -p /opt/root/.ssh && cat >> /opt/root/.ssh/authorized_keys' < ~/.ssh/id_ed25519.pub
    ```
+8. **IPv6**: MGTS gives LAN devices native IPv6 (seen 2026-09-19), which would let foreign sites with IPv6 bypass the tunnel.
+   Turn IPv6 off on the ISP connection (Internet → connection → IPv6) or use XKeen's IPv6 handling; from a LAN device
+   `curl -6 https://ifconfig.co` must fail.
+
 ## 1. XKeen 2.0 (jameszeroX fork)
 ```sh
 opkg update && opkg upgrade && opkg install curl tar && cd /tmp
