@@ -8,7 +8,7 @@ Per device (mac, iphone, keenetic):
   <dev>/awg-<server>.conf/.png         AmneziaWG config for the EU node (Full mode only)
   <dev>/awg-msk.conf                   direct AmneziaWG profile to the Moscow node (if msk exists)
   <dev>/wg-control-<server>.conf       plain WireGuard control profile (Phase 1 only, test_mode)
-happ/routing-split.json + .deeplink.txt + .png            Happ routing profile (custom overrides + geo)\nsub/shadowrocket.conf, sub/ru-direct.list, shadowrocket-import-url.txt   Shadowrocket rules (served by Caddy)
+happ/routing-split.json + .deeplink.txt + .png            Happ routing profile (custom overrides + geo)\nsub/shadowrocket.conf, shadowrocket-import-url.txt   Shadowrocket rules, Russian list inlined (served by Caddy)
 sub/<dev>                              subscription body served by Caddy at https://<domain>/s/<token>/<dev>
 keenetic/xkeen/04_outbounds.json, 05_routing.json (+ _via_reality/_via_awg), ip_exclude.lst
 test/<server>/{reality,reality-chrome,xhttp}.json        local Xray client configs for tests/matrix.sh
@@ -86,7 +86,7 @@ def v2fly_list(name, seen=None):
     return out
 
 
-def shadowrocket_conf(list_url):
+def shadowrocket_conf():
     rules = load_rules()
     lines = ["[General]",
              "bypass-system = true",
@@ -106,12 +106,14 @@ def shadowrocket_conf(list_url):
         if entry.startswith("keyword:"):
             return f"DOMAIN-KEYWORD,{entry[8:]},{action}"
         if entry.startswith("geosite:"):
-            return f"# geosite:{entry[8:]} is expanded into ru-direct.list when it is a v2fly category"
+            return f"# geosite:{entry[8:]} is expanded into the Russian list below when it is a v2fly category"
         return f"DOMAIN-SUFFIX,{entry},{action}"
     lines += [sr(e, "REJECT") for e in rules["block"]]
     lines += [sr(e, "DIRECT") for e in rules["direct"]]
     lines += [sr(e, "PROXY") for e in rules["proxy"]]
-    lines += [f"RULE-SET,{list_url},DIRECT",
+    # Inlined, not RULE-SET: works before the domain exists, and the conf itself is re-fetched from the subscription URL
+    lines += [f"{l},DIRECT" for l in ru_direct_list().splitlines()]
+    lines += [
               "DOMAIN-SUFFIX,ru,DIRECT", "DOMAIN-SUFFIX,su,DIRECT", "DOMAIN-SUFFIX,xn--p1ai,DIRECT",
               "GEOIP,RU,DIRECT,no-resolve",
               "FINAL,PROXY",
@@ -317,8 +319,7 @@ def main():
 
     # Shadowrocket: rules file + RU rule-set, both served by Caddy next to the subscriptions
     sub_base = f"https://{v['vpn_domain']}/s/{sec['sub_token']}/"
-    write(OUT / "sub" / "ru-direct.list", ru_direct_list())
-    write(OUT / "sub" / "shadowrocket.conf", shadowrocket_conf(sub_base + "ru-direct.list"))
+    write(OUT / "sub" / "shadowrocket.conf", shadowrocket_conf())
     write(OUT / "shadowrocket-import-url.txt",
           f"shadowrocket://config/add/{sub_base}shadowrocket.conf\n")
 
