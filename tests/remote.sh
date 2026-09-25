@@ -6,6 +6,7 @@
 #   tests/remote.sh matrix vdsina-ams home             # tests/matrix.sh (interactive prompts for AWG/WG legs are answered by you there)
 #   tests/remote.sh leak                               # tests/leak-check.sh
 #   tests/remote.sh collect                            # copy tests/out/* back from the test Mac
+# Runs are wrapped in caffeinate so the test Mac does not sleep mid-test.
 #   tests/remote.sh ssh [cmd]                          # shell / arbitrary command
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -31,11 +32,11 @@ run() {   # run <script> <args...>; honours --detached anywhere in args
   for a in "$@"; do [ "$a" = "--detached" ] && detached=1 || args+=("$a"); done
   if [ $detached = 1 ]; then
     local envp=""; case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
-    $SSH "cd $D && mkdir -p tests/out && ${envp}nohup tests/$script ${args[*]} > tests/out/${script%.sh}-detached.log 2>&1 &" \
+    $SSH "cd $D && mkdir -p tests/out && ${envp}nohup caffeinate -is tests/$script ${args[*]} > tests/out/${script%.sh}-detached.log 2>&1 &" \
       && echo "started tests/$script ${args[*]} on $T (log: tests/out/${script%.sh}-detached.log). Switch networks now; later: tests/remote.sh collect"
   else
     local envp=""; case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
-    ssh -t -o ConnectTimeout=10 "$T" "cd $D && ${envp}tests/$script ${args[*]}"
+    ssh -t -o ConnectTimeout=10 "$T" "cd $D && ${envp}caffeinate -is tests/$script ${args[*]}"
   fi
 }
 

@@ -18,7 +18,7 @@ BIG_MB=${BIG_MB:-500};   [ "$quick" = quick ] && BIG_MB=50
 # Cloudflare's __down refuses >=100 MB (403) and rate-limits repeated probes (429), so: CDN file for downloads,
 # a 1 GB file (range-limited) for the sustained run, and a tiny 204 page for latency/stability probes.
 DL_URL="https://cachefly.cachefly.net/100mb.test"
-BIG_URL="http://speedtest.tele2.net/1GB.zip"
+BIG_URL="https://proof.ovh.net/files/1Gb.dat"   # tele2 (Sweden) is unreachable from Kazakhstan
 PROBE_URL="https://www.gstatic.com/generate_204"
 UL_URL="https://speed.cloudflare.com/__up"
 
