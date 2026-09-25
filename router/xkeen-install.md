@@ -3,17 +3,23 @@
 Every device on home Wi-Fi is proxied by the router: Russian destinations stay direct, everything else goes through the
 EU node over VLESS-Reality. One switch for the whole house: `vpn-mode on|off`.
 
-## 0. Prerequisites (avmax, in the Keenetic UI)
-1. KeeneticOS 5.1 or newer (System → Update). AmneziaWG 2.0 parameters (fallback path) need 5.1.
-2. USB stick formatted ext4 in the router, component **OPKG** installed → Entware:
-   https://support.keenetic.com/hero/kn-1012/en/20980-installing-the-entware-repository-on-a-usb-drive.html
-3. Router DNS: enable DNS-over-TLS/HTTPS profiles (Internet → DNS). XKeen requires encrypted DNS on the router.
-4. Move the web UI off port 443 (System → Access): XKeen TProxy needs 443 free.
-5. Entware SSH: `ssh root@192.168.1.1 -p 222`.
-6. **IPv6**: the home ISP (MGTS) hands out IPv6 to LAN clients (seen 2026-09-19). Any foreign site with an AAAA record would then bypass the
-   tunnel over IPv6. Disable IPv6 on the ISP connection in the Keenetic UI (Internet → connection → IPv6 off) or use XKeen's IPv6 handling;
-   verify with `curl -6 https://ifconfig.co` from a LAN device: it must fail.
-
+## 0. Prerequisites (this router: Keenetic Giga KN-1012, ARM64, KeeneticOS 5.1.6)
+1. KeeneticOS 5.1+ — already on 5.1.6.
+2. Components (System → Components): **OPKG** ("Open Package support"). Saving reboots the router.
+3. USB stick, prepared on the Mac (erases it; refuses non-USB disks):
+   ```sh
+   router/make-usb.sh            # find the stick, e.g. disk4
+   router/make-usb.sh disk4      # ext4 partition "OPKG" with install/EN_aarch64-installer.tar.gz
+   ```
+4. Plug the stick into the router → Applications → OPKG → Drive: the `OPKG` stick → Save. Watch Diagnostics → System log
+   until Entware reports it is installed.
+5. Router DNS: enable DNS-over-TLS/HTTPS profiles (Internet → DNS). XKeen requires encrypted DNS on the router.
+6. Move the web admin off port 443 (System → Access): XKeen TProxy needs 443 free.
+7. Entware SSH is on port 222, user `root`, default password `keenetic`. Once, from the Mac, change it and add the Mac's key
+   (you type the password; after this every login is key-based):
+   ```sh
+   ssh -p 222 root@192.168.1.1 'passwd && mkdir -p /opt/root/.ssh && cat >> /opt/root/.ssh/authorized_keys' < ~/.ssh/id_ed25519.pub
+   ```
 ## 1. XKeen 2.0 (jameszeroX fork)
 ```sh
 opkg update && opkg upgrade && opkg install curl tar && cd /tmp
@@ -52,4 +58,4 @@ How "Russian = direct" is decided on the router (two layers): XKeen's ipsets kee
 ## 5. Checks
 From a home device with no VPN app: `tests/leak-check.sh` → ip.beget.ru shows the home ISP, ifconfig.co the EU IP; `vpn-mode off` →
 both show the home ISP. YouTube/ChatGPT/claude.ai load with `on`; Yandex/Gosuslugi/Sber see the home IP in both states.
-MT7621 Gigas (KN-1010/1011) top out around 250–300 Mbps through Xray.
+KN-1012 (MT7981, 512 MB) has headroom well above the 250–300 Mbps ceiling of the older MT7621 Gigas.
