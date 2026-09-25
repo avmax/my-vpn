@@ -81,10 +81,14 @@ sleep 2; measure "reality" --proxy socks5h://127.0.0.1:1080 && freeze_probe; kil
 say "## XHTTP over TLS (firefox fp), via local SOCKS 1081"
 tests/bin/xray run -config "clients/out/test/$srv/xhttp.json" >/dev/null 2>&1 & XP=$!
 sleep 2; measure "xhttp" --proxy socks5h://127.0.0.1:1081; kill $XP 2>/dev/null
-say "## AmneziaWG 2.0"
-echo ">>> Connect the AmneziaWG app with clients/out/mac/awg-${srv}.conf, then press Enter (or 's' to skip)"; read -r a
-[ "$a" != s ] && measure "amneziawg"
-echo ">>> Disconnect AmneziaWG. Now connect the WireGuard app with clients/out/mac/wg-control-${srv}.conf (plain WG control), then press Enter (or 's')"; read -r a
-[ "$a" != s ] && measure "plain-wireguard-control"
-echo ">>> Disconnect WireGuard."
+if [ -t 0 ]; then
+  say "## AmneziaWG 2.0"
+  echo ">>> Connect the AmneziaWG app with clients/out/mac/awg-${srv}.conf, then press Enter (or 's' to skip)"; read -r a
+  [ "$a" != s ] && measure "amneziawg"
+  echo ">>> Disconnect AmneziaWG. Now connect the WireGuard app with clients/out/mac/wg-control-${srv}.conf (plain WG control), then press Enter (or 's')"; read -r a
+  [ "$a" != s ] && measure "plain-wireguard-control"
+  echo ">>> Disconnect WireGuard."
+else
+  say "## AmneziaWG / plain WireGuard: skipped (no terminal to prompt for Connect in the apps)"
+fi
 say "Saved to $out"
