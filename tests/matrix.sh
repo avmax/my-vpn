@@ -15,7 +15,11 @@ ip="${SERVER_IP:-}"
 [ -z "$ip" ] && { echo "SERVER_IP not set and no local venv to read inventory" >&2; exit 1; }
 STAB_MIN=${STAB_MIN:-45}; [ "$quick" = quick ] && STAB_MIN=3
 BIG_MB=${BIG_MB:-500};   [ "$quick" = quick ] && BIG_MB=50
-DL_URL="https://speed.cloudflare.com/__down?bytes="
+# Cloudflare's __down refuses >=100 MB (403) and rate-limits repeated probes (429), so: CDN file for downloads,
+# a 1 GB file (range-limited) for the sustained run, and a tiny 204 page for latency/stability probes.
+DL_URL="https://cachefly.cachefly.net/100mb.test"
+BIG_URL="http://speedtest.tele2.net/1GB.zip"
+PROBE_URL="https://www.gstatic.com/generate_204"
 UL_URL="https://speed.cloudflare.com/__up"
 
 say() { printf '%s\n' "$*" | tee -a "$out"; }
@@ -37,19 +41,19 @@ measure() {
   local seen; seen=$(curl -s --max-time 20 "${P[@]}" https://ifconfig.co/json | jq -r '.ip + " " + (.asn_org // .asn // "")' 2>/dev/null)
   if [ -z "$seen" ]; then say "- handshake: **FAIL** (no response through the tunnel)"; say ""; return 1; fi
   say "- handshake: OK, exit seen as \`$seen\`"
-  local ttfb; ttfb=$(curl -s -o /dev/null --max-time 20 "${P[@]}" -w '%{time_starttransfer}' "${DL_URL}1000")
-  say "- time to first byte (1 KB): ${ttfb}s"
-  local r; r=$(curl -s -o /dev/null --max-time 60 "${P[@]}" -w '%{speed_download} %{size_download}' "${DL_URL}100000000")
+  local ttfb; ttfb=$(curl -s -o /dev/null --max-time 20 "${P[@]}" -w '%{time_starttransfer}' "$PROBE_URL")
+  say "- time to first byte (204 probe): ${ttfb}s"
+  local r; r=$(curl -s -o /dev/null --max-time 60 "${P[@]}" -w '%{speed_download} %{size_download}' "$DL_URL")
   say "- download 100 MB: $(echo "$r" | awk '{printf "%.1f Mbps, got %.0f MB", $1*8/1e6, $2/1048576}')"
-  head -c 20000000 /dev/zero > /tmp/ul20.bin
-  r=$(curl -s -o /dev/null --max-time 60 "${P[@]}" -w '%{speed_upload}' -X POST --data-binary @/tmp/ul20.bin "$UL_URL")
-  say "- upload 20 MB: $(echo "$r" | awk '{printf "%.1f Mbps", $1*8/1e6}')"
-  r=$(curl -s -o /dev/null --max-time 900 "${P[@]}" -w '%{speed_download} %{size_download} %{time_total}' "${DL_URL}$((BIG_MB*1000000))")
+  head -c 10000000 /dev/zero > /tmp/ul10.bin
+  r=$(curl -s -o /dev/null --max-time 60 "${P[@]}" -w '%{speed_upload} %{http_code}' -X POST --data-binary @/tmp/ul10.bin "$UL_URL")
+  say "- upload 10 MB: $(echo "$r" | awk '{printf "%.1f Mbps (http %s)", $1*8/1e6, $2}')"
+  r=$(curl -s -o /dev/null --max-time 900 "${P[@]}" -r 0-$((BIG_MB*1000000-1)) -w '%{speed_download} %{size_download} %{time_total}' "$BIG_URL")
   say "- sustained ${BIG_MB} MB: $(echo "$r" | awk -v m="$BIG_MB" '{printf "%.1f Mbps, got %.0f MB of %d in %.0fs%s", $1*8/1e6, $2/1e6, m, $3, ($2<m*1e6*0.98)?"  **CUT SHORT**":""}')"
   local n=0 fail=0 slow=0 end=$((SECONDS + STAB_MIN*60))
   while [ $SECONDS -lt $end ]; do
-    local t; t=$(curl -s -o /dev/null --max-time 8 "${P[@]}" -w '%{time_total} %{http_code}' "${DL_URL}20000")
-    n=$((n+1)); case "$t" in *" 200") awk -v x="${t% *}" 'BEGIN{exit !(x>3)}' && slow=$((slow+1));; *) fail=$((fail+1));; esac
+    local t; t=$(curl -s -o /dev/null --max-time 8 "${P[@]}" -w '%{time_total} %{http_code}' "$PROBE_URL")
+    n=$((n+1)); case "$t" in *" 204") awk -v x="${t% *}" 'BEGIN{exit !(x>3)}' && slow=$((slow+1));; *) fail=$((fail+1));; esac
     sleep 10
   done
   say "- stability ${STAB_MIN} min: $n probes, $fail failed, $slow slower than 3 s"
@@ -61,11 +65,12 @@ freeze_probe() {
   say "### Freeze probe (6 parallel Chrome-fingerprint handshakes, then watch the Firefox tunnel for 3 min)"
   tests/bin/xray run -config "clients/out/test/$srv/reality-chrome.json" >/dev/null 2>&1 & local cpid=$!
   sleep 2
-  for i in 1 2 3 4 5 6; do curl -s -o /dev/null --max-time 20 --proxy socks5h://127.0.0.1:1082 "${DL_URL}1000" & done; wait
+  local pids=""; for i in 1 2 3 4 5 6; do curl -s -o /dev/null --max-time 20 --proxy socks5h://127.0.0.1:1082 "$PROBE_URL" & pids="$pids $!"; done
+  wait $pids   # only the burst: a bare wait would also wait for the tunnel client and hang forever
   kill $cpid 2>/dev/null
   local worst=0 end=$((SECONDS + 180))
   while [ $SECONDS -lt $end ]; do
-    local t; t=$(curl -s -o /dev/null --max-time 30 --proxy socks5h://127.0.0.1:1080 -w '%{time_total}' "${DL_URL}1000")
+    local t; t=$(curl -s -o /dev/null --max-time 30 --proxy socks5h://127.0.0.1:1080 -w '%{time_total}' "$PROBE_URL")
     awk -v a="$t" -v b="$worst" 'BEGIN{exit !(a>b)}' && worst=$t
     sleep 10
   done
