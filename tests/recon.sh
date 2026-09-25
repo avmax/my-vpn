@@ -22,7 +22,8 @@ if [ -n "${WAIT_NOT_IP:-}" ]; then
     [ -n "$cur" ] && [ "$cur" != "$WAIT_NOT_IP" ] && break
     sleep 10
   done
-  echo "network changed: public IP now ${cur:-unknown}; starting"
+  if [ -z "$cur" ] || [ "$cur" = "$WAIT_NOT_IP" ]; then echo "timed out: network never changed, aborting (not measuring home as '$label')"; exit 1; fi
+  echo "network changed: public IP now $cur; starting"
 fi
 say "# Recon: $label, $(date)"
 say ""
