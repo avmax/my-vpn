@@ -11,7 +11,7 @@ Moscow node for travelling. Design and research notes: `~/.claude/plans/i-wanna-
 | Home Wi-Fi (router does it, no apps) | `vpn-mode on` | direct | EU node | one tap: Shortcut → SSH to the router |
 | Home Wi-Fi | `vpn-mode off` | direct | direct | same |
 | Mac/iPhone away (cellular, other Wi-Fi) | auto (Shadowrocket On Demand) | direct | EU node | nothing to tap |
-| Mac/iPhone abroad | `... ABROAD` server selected | Moscow node (via EU) | EU node | pick the server in Shadowrocket |
+| Mac/iPhone abroad | `avmax-<server>-abroad` server selected | Moscow node (via EU) | EU node | pick the server in Shadowrocket |
 
 Rules are three layers, first match wins, same on every device: `rules/custom.json` overrides → automatic geo detection
 (`geosite:category-ru`, `.ru/.su/.рф`, `geoip:ru`) → everything else via VPN. See `rules/README.md` and `rules/expand.py`.

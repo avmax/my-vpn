@@ -10,7 +10,7 @@ Shadowrocket's On Demand rules do it: Settings → On Demand → add rules
 2. **Wi-Fi, SSID = <home SSID> → Disconnect** (the router handles home)
 3. **Wi-Fi, SSID keyword `*` (any other) → Connect**
 With On Demand enabled the system VPN switch will not stay off; to pause the VPN temporarily, toggle On Demand in the app.
-Abroad: open Shadowrocket and pick the `... ABROAD` server entry (Russian sites will exit from the Moscow node).
+Abroad: open Shadowrocket and pick the `avmax-<server>-abroad` server entry (Russian sites will exit from the Moscow node).
 
 ## Optional per-device exception on the router
 `router/keenetic-policy.sh <device> default` moves a device out of XKeen's reach by assigning a Keenetic policy without the proxy

@@ -8,7 +8,7 @@ Per device (mac, iphone, keenetic):
   <dev>/awg-<server>.conf/.png         AmneziaWG config for the EU node (Full mode only)
   <dev>/awg-msk.conf                   direct AmneziaWG profile to the Moscow node (if msk exists)
   <dev>/wg-control-<server>.conf       plain WireGuard control profile (Phase 1 only, test_mode)
-happ/routing-split.json + .deeplink.txt + .png            Happ routing profile (custom overrides + geo)\nsub/shadowrocket.conf, shadowrocket-import-url.txt   Shadowrocket rules, Russian list inlined (served by Caddy)
+happ/routing-split.json + .deeplink.txt + .png            Happ routing profile (custom overrides + geo)\nsub/avmax-split.conf, shadowrocket-import-url.txt   Shadowrocket rules, Russian list inlined (served by Caddy)
 sub/<dev>                              subscription body served by Caddy at https://<domain>/s/<token>/<dev>
 keenetic/xkeen/04_outbounds.json, 05_routing.json (+ _via_reality/_via_awg), ip_exclude.lst
 test/<server>/{reality,reality-chrome,xhttp}.json        local Xray client configs for tests/matrix.sh
@@ -319,23 +319,23 @@ def main():
 
     # Shadowrocket: rules file + RU rule-set, both served by Caddy next to the subscriptions
     sub_base = f"https://{v['vpn_domain']}/s/{sec['sub_token']}/"
-    write(OUT / "sub" / "shadowrocket.conf", shadowrocket_conf())
+    write(OUT / "sub" / "avmax-split.conf", shadowrocket_conf())
     write(OUT / "shadowrocket-import-url.txt",
-          f"shadowrocket://config/add/{sub_base}shadowrocket.conf\n")
+          f"shadowrocket://config/add/{sub_base}avmax-split.conf\n")
 
     for name, d in devices.items():
         ds = sec["device_secrets"][name]
         sub_lines = []
         for sname, (ip, hv) in exits.items():
-            r = reality_uri(ds["uuid_home"], ip, hv, sec, ds["reality_short_id"], f"avmax {sname} reality")
-            x = xhttp_uri(ds["uuid_home"], ip, hv, sec, f"avmax {sname} xhttp")
+            r = reality_uri(ds["uuid_home"], ip, hv, sec, ds["reality_short_id"], f"avmax-{sname}")
+            x = xhttp_uri(ds["uuid_home"], ip, hv, sec, f"avmax-{sname}-xhttp")
             write(OUT / name / f"reality-{sname}.txt", r + "\n")
             qr(OUT / name / f"reality-{sname}.png", r)
             write(OUT / name / f"xhttp-{sname}.txt", x + "\n")
             qr(OUT / name / f"xhttp-{sname}.png", x)
             sub_lines += [r, x]
             if d.get("abroad"):
-                a = reality_uri(ds["uuid_abroad"], ip, hv, sec, ds["reality_short_id"], f"avmax {sname} ABROAD")
+                a = reality_uri(ds["uuid_abroad"], ip, hv, sec, ds["reality_short_id"], f"avmax-{sname}-abroad")
                 write(OUT / name / f"reality-abroad-{sname}.txt", a + "\n")
                 qr(OUT / name / f"reality-abroad-{sname}.png", a)
                 sub_lines.append(a)
