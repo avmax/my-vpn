@@ -68,6 +68,7 @@ Reading: the TSPU-listed controls are dead here too. HostKey and OVH trickle at 
 
 | server (AS) | network | protocol | handshake | TTFB | down / up Mbps | sustained 500 MB | 45-min stability | freeze probe | verdict |
 |---|---|---|---|---|---|---|---|---|---|
+| kz-test Timeweb Almaty AS9123 | mobile Tinkoff (T-Bank AS205638), direct baseline 5.4 Mbps | Reality+Vision, 8443, fp firefox | OK | 1.12 s | 100 MB: 0 (failed) / 10 MB up: stalled | 50 MB at 3.4 Mbps, complete | 15 probes, 2 failed | no freeze | works; throughput bounded by the weak mobile link at test time; rerun on better signal |
 | kz-test Timeweb Almaty AS9123 | home MGTS | Reality+Vision, 8443, fp firefox | OK | 0.68 s | 72 / 22 | 50 MB at 68 Mbps (quick mode) | 17 probes, 0 failed | no freeze | works; XHTTP n/a on this host (no Caddy); AWG not deployed |
 
 ## Decision
