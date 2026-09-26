@@ -78,6 +78,14 @@ as the permanent exit. Every EU candidate gets the same route check (no Russian 
 | kz-test Timeweb Almaty AS9123 | mobile Tinkoff (T-Bank AS205638), direct baseline 5.4 Mbps | Reality+Vision, 8443, fp firefox | OK | 1.12 s | 100 MB: 0 (failed) / 10 MB up: stalled | 50 MB at 3.4 Mbps, complete | 15 probes, 2 failed | no freeze | works; throughput bounded by the weak mobile link at test time; rerun on better signal |
 | kz-test Timeweb Almaty AS9123 | home MGTS | Reality+Vision, 8443, fp firefox | OK | 0.68 s | 72 / 22 | 50 MB at 68 Mbps (quick mode) | 17 probes, 0 failed | no freeze | works; XHTTP n/a on this host (no Caddy); AWG not deployed |
 
+## Step 2: Mac on our VPN (2026-09-27)
+
+Personal Mac switched from the commercial Amnezia service to Shadowrocket 2.2.92 → `avmax-timeweb-almaty`, rules `avmax-split.conf`:
+foreign sites see 92.118.115.34 (KZ), Russian sites see the home MGTS address, ChatGPT/Claude see KZ, api.anthropic.com reachable (0.9 s).
+Import notes: Shadowrocket for Mac adds a server when a `vless://` link is opened (`open "vless://…"`, silently, window must exist);
+its Import button only takes its own formats; the reliable route is Type **Subscribe** + an http(s) URL serving a base64 link list.
+Shadowrocket 2.2.92 fails against Xray ≥ 26.9.8 (ML-KEM key share), so the server pin to 26.7.28 stays until it is fixed.
+
 ## Decision
 
 - EU node: 
