@@ -22,6 +22,13 @@ echo "db-ip:    $($C https://api.db-ip.com/v2/free/self | tr -d '\n')"
 echo "cloudflare loc: $($C https://www.cloudflare.com/cdn-cgi/trace | grep -E '^(loc|ip)=' | tr '\n' ' ')"
 echo "geofeed:  $(whois -h whois.ripe.net "$(curl -s https://ifconfig.co)" 2>/dev/null | grep -i geofeed | head -1)"
 echo
+echo "== path to Europe: any RU hop means Russian filtering on transit (kz-test failed this) =="
+if command -v tracepath >/dev/null; then
+  for h in $(tracepath -n -m 12 157.240.253.174 2>/dev/null | awk '{print $2}' | grep -E '^[0-9]+\.[0-9]+\.' | awk '!seen[$0]++'); do
+    c=$(curl -s --max-time 5 "https://ipinfo.io/$h/country"); echo "  $h ${c:-?}$( [ "$c" = RU ] && echo '  <-- RUSSIAN HOP')"
+  done
+else echo "  tracepath not installed (apt install iputils-tracepath)"; fi
+echo
 echo "== OpenAI / Anthropic (Cloudflare view + block type) =="
 echo "chatgpt.com trace: $($C https://chatgpt.com/cdn-cgi/trace | grep -E '^loc=' )"
 echo "chatgpt.com head:  $($C -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Firefox/128.0' https://chatgpt.com/)  $(curl -sI --max-time 20 https://chatgpt.com/ | grep -i '^cf-mitigated' | tr -d '\r')"
