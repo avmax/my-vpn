@@ -8,7 +8,7 @@ Measurements: [tests/RESULTS.md](tests/RESULTS.md).
 | [0. Control Mac, one-time](#0-control-mac-one-time) | done |
 | [1. Cloud server](#1-cloud-server) | `timeweb-almaty` running (temporary); EU server next |
 | [2. MacBook](#2-macbook) | done, on `timeweb-almaty` |
-| [3. iPhone](#3-iphone) | in progress |
+| [3. iPhone](#3-iphone) | done, on `timeweb-almaty` |
 | [4. Keenetic router](#4-keenetic-router) | prepared, not started |
 | [5. Everyday use](#5-everyday-use) | |
 | [6. Troubleshooting](#6-troubleshooting) | |

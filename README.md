@@ -15,7 +15,7 @@ Keenetic router covers every device; away from home the MacBook and iPhone switc
 | Network recon (home MGTS, Tinkoff mobile) | done |
 | Exit server | `timeweb-almaty` (Timeweb, Almaty) running as a temporary exit on port 8443; routes through Moscow, so an EU server comes next |
 | MacBook | done: Shadowrocket, split rules, Amnezia retired |
-| iPhone | in progress |
+| iPhone | done: Shadowrocket via QR code + AirDropped rules |
 | Keenetic router (KN-1012, KeeneticOS 5.1.6) | prepared (USB tooling, configs), not started |
 | EU exit server (VDSina Amsterdam or UpCloud Helsinki) | after the router |
 | Moscow node for travelling | later |

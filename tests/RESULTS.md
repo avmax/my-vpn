@@ -86,6 +86,12 @@ Import notes: Shadowrocket for Mac adds a server when a `vless://` link is opene
 its Import button only takes its own formats; the reliable route is Type **Subscribe** + an http(s) URL serving a base64 link list.
 Shadowrocket 2.2.92 fails against Xray ≥ 26.9.8 (ML-KEM key share), so the server pin to 26.7.28 stays until it is fixed.
 
+## Step 3: iPhone on our VPN (2026-09-27)
+
+iPhone (iOS 26.6.1), Shadowrocket → `avmax-timeweb-almaty` imported by scanning the QR code shown on the Mac, rules
+`avmax-split.conf` by AirDrop. On home Wi-Fi: ifconfig.co sees 92.118.115.34 (KZ), ip.beget.ru sees the home address;
+server latency 77 ms in Shadowrocket's test.
+
 ## Decision
 
 - EU node: 
