@@ -63,6 +63,12 @@ Reading: the TSPU-listed controls are dead here too. HostKey and OVH trickle at 
 | Netflix licensed title 70143836 | 200 at /kz/title/… | full KZ catalog, not originals-only |
 | YouTube Premium region | KZ over IPv4, **RU over IPv6** | exit must stay IPv4-only (it is: freedom UseIPv4) |
 | Gemini, Google search, Drive | 200 / 200 / 302 | fine, no captcha |
+| **browser through the tunnel** (Shadowrocket, Proxy mode, second Mac, 2026-09-26) | chatgpt.com and claude.ai work, log in and chat; Cloudflare sees KZ | the curl 403 was only the bot challenge |
+| **Instagram** | fails intermittently: www/i.instagram.com time out from the server itself; with a pinned reachable Meta IP it returns 200 in 0.9 s | some Meta prefixes (e.g. 157.240.205.0/24, 31.13.72.0/24) are unreachable |
+
+**Why, and the verdict:** the server's path to Europe runs Almaty → Timeweb **Moscow** (94.228.119.193, +48 ms) → Timeweb Amsterdam → Cogent.
+Foreign traffic from this "Kazakh" server transits Russia, so it inherits Russian filtering of blocked services. Fine for the MVP test, unsuitable
+as the permanent exit. Every EU candidate gets the same route check (no Russian hop) before it is kept.
 
 ## Phase 1: protocol matrix (tests/matrix.sh)
 
