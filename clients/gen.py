@@ -86,9 +86,10 @@ def v2fly_list(name, seen=None):
     return out
 
 
-def shadowrocket_conf():
+def shadowrocket_conf(update_url):
     rules = load_rules()
     lines = ["[General]",
+             f"update-url = {update_url}",
              "bypass-system = true",
              "skip-proxy = 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, localhost, *.local, captive.apple.com",
              "tun-excluded-routes = 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 255.255.255.255/32",
@@ -154,9 +155,10 @@ def inventory_hosts(inv):
     """Return ({name: ip} for exit nodes, msk ip or None)."""
     ch = inv["all"]["children"]
     exits, msk = {}, None
+    shared = set((ch.get("no_deploy", {}).get("hosts") or {}))
     for g in ("eu", "standby", "eu_candidates"):
         for name, h in (ch.get(g, {}).get("hosts") or {}).items():
-            exits.setdefault(name, h)
+            exits.setdefault(name, {**h, "_shared": name in shared})
     for name, h in (ch.get("msk", {}).get("hosts") or {}).items():
         msk = h["ansible_host"]
     return exits, msk
@@ -319,7 +321,7 @@ def main():
 
     # Shadowrocket: rules file + RU rule-set, both served by Caddy next to the subscriptions
     sub_base = f"https://{v['vpn_domain']}/s/{sec['sub_token']}/"
-    write(OUT / "sub" / "avmax-split.conf", shadowrocket_conf())
+    write(OUT / "sub" / "avmax-split.conf", shadowrocket_conf(sub_base + "avmax-split.conf"))
     write(OUT / "shadowrocket-import-url.txt",
           f"shadowrocket://config/add/{sub_base}avmax-split.conf\n")
 
@@ -333,8 +335,8 @@ def main():
             qr(OUT / name / f"reality-{sname}.png", r)
             write(OUT / name / f"xhttp-{sname}.txt", x + "\n")
             qr(OUT / name / f"xhttp-{sname}.png", x)
-            sub_lines += [r, x]
-            if d.get("abroad"):
+            sub_lines += [r] if hv.get("_shared") else [r, x]
+            if d.get("abroad") and msk_ip:
                 a = reality_uri(ds["uuid_abroad"], ip, hv, sec, ds["reality_short_id"], f"avmax-{sname}-abroad")
                 write(OUT / name / f"reality-abroad-{sname}.txt", a + "\n")
                 qr(OUT / name / f"reality-abroad-{sname}.png", a)

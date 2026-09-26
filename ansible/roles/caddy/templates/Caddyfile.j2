@@ -1,6 +1,6 @@
 {
-	email {{ acme_email }}
-	http_port {{ caddy_http_port }}
+{% if acme_email %}	email {{ acme_email }}
+{% endif %}	http_port {{ caddy_http_port }}
 	https_port {{ caddy_internal_port }}
 	servers {
 		protocols h1 h2

@@ -1,0 +1,64 @@
+---
+# Publish subscription files from a shared host whose Caddy serves other sites (group no_deploy).
+# Adds one validated import line and one site file; everything else in that Caddy stays untouched.
+#   ansible-playbook sub-shared.yml -l timeweb-almaty
+# Remove: delete the "import /etc/caddy/avmax-vpn.caddy" line, /etc/caddy/avmax-vpn.caddy and /var/www/avmax-vpn; reload caddy.
+- name: Subscriptions on a shared host
+  hosts: no_deploy
+  become: true
+  vars_files:
+    - ../secrets/secrets.yml
+  pre_tasks:
+    - name: "{{ vpn_domain }} must already point at this host (Caddy needs it to get a certificate)"
+      ansible.builtin.command: getent ahostsv4 {{ vpn_domain }}
+      register: dns
+      changed_when: false
+      failed_when: ansible_host not in dns.stdout
+  tasks:
+    - name: Web root
+      ansible.builtin.file:
+        path: /var/www/avmax-vpn
+        state: directory
+        owner: caddy
+        group: caddy
+        mode: "0755"
+
+    - name: Subscription and rules files (from clients/gen.py)
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/var/www/avmax-vpn/{{ item | basename }}"
+        owner: caddy
+        group: caddy
+        mode: "0644"
+      with_fileglob:
+        - "{{ playbook_dir }}/../clients/out/sub/*"
+
+    - name: Site file for {{ vpn_domain }} (validated on its own)
+      ansible.builtin.copy:
+        dest: /etc/caddy/avmax-vpn.caddy
+        mode: "0644"
+        validate: "caddy validate --adapter caddyfile --config %s"
+        content: |
+          {{ vpn_domain }} {
+          	handle_path /s/{{ sub_token }}/* {
+          		root * /var/www/avmax-vpn
+          		header Cache-Control "no-store"
+          		file_server
+          	}
+          	respond 404
+          }
+      notify: reload caddy
+
+    - name: Import it from the main Caddyfile (whole config validated before the line is kept)
+      ansible.builtin.lineinfile:
+        path: /etc/caddy/Caddyfile
+        line: "import /etc/caddy/avmax-vpn.caddy"
+        insertafter: EOF
+        validate: "caddy validate --adapter caddyfile --config %s"
+      notify: reload caddy
+
+  handlers:
+    - name: reload caddy
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded

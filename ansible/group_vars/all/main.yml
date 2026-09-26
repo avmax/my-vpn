@@ -1,6 +1,6 @@
 # Non-secret configuration shared by every server. Secrets live in secrets/secrets.yml (generated, gitignored).
-vpn_domain: "eu.example.com"          # A record -> EU VPS. Set your real hostname here.
-acme_email: "admin@example.com"
+vpn_domain: "vpn.avmax.me"            # subscriptions (and, on a dedicated exit, the Reality cover site); A record at GoDaddy
+acme_email: ""                         # optional Let's Encrypt contact for dedicated exits
 
 # Pinned versions (bump deliberately; see README "Upgrading").
 xray_version: "26.7.28"               # v26.9.8+ needs MLKEM-capable clients; keep until Happ/XKeen catch up
