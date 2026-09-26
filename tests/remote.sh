@@ -27,27 +27,23 @@ sync() {
   echo "synced to $T:$D"
 }
 
-run() {   # run <script> <args...>; honours --detached anywhere in args
-  local script="$1"; shift; local detached=0 args=()
-  for a in "$@"; do [ "$a" = "--detached" ] && detached=1 || args+=("$a"); done
+run() {   # run <[ENV=val ]script> <args...>; honours --detached and --wait anywhere in args
+  local script="$1"; shift; local detached=0 wait=0 args=() envp="" pre=""
+  for a in "$@"; do case "$a" in --detached) detached=1;; --wait) wait=1;; *) args+=("$a");; esac; done
+  case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
+  [ $wait = 1 ] && pre="tests/wait-net.sh $($SSH 'curl -4 -s --max-time 8 https://ipinfo.io/ip') && "
+  local cmd="cd $D && mkdir -p tests/out && ${pre}${envp}caffeinate -is tests/$script ${args[*]}"
   if [ $detached = 1 ]; then
-    local envp=""; case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
-    $SSH "cd $D && mkdir -p tests/out && ${envp}nohup caffeinate -is tests/$script ${args[*]} > tests/out/${script%.sh}-detached.log 2>&1 &" \
+    $SSH "nohup sh -c '$cmd' > $D/tests/out/${script%.sh}-detached.log 2>&1 &" \
       && echo "started tests/$script ${args[*]} on $T (log: tests/out/${script%.sh}-detached.log). Switch networks now; later: tests/remote.sh collect"
   else
-    local envp=""; case "$script" in *=*\ *) envp="${script%% *} "; script="${script#* }";; esac
-    ssh -t -o ConnectTimeout=10 "$T" "cd $D && ${envp}caffeinate -is tests/$script ${args[*]}"
+    ssh -t -o ConnectTimeout=10 "$T" "$cmd"
   fi
 }
 
 case "${1:-}" in
   sync)    sync ;;
-  recon)   shift; sync >/dev/null
-           if [ "${2:-}" = "--wait" ] || [ "${3:-}" = "--wait" ]; then
-             set -- $(printf '%s\n' "$@" | grep -v -- '--wait')
-             cur=$($SSH "curl -4 -s --max-time 8 https://ipinfo.io/ip")
-             run "WAIT_NOT_IP=$cur recon.sh" "$@"
-           else run recon.sh "$@"; fi ;;
+  recon)   shift; sync >/dev/null; run recon.sh "$@" ;;
   matrix)  shift; sync >/dev/null
            srv="$1"; ip=$(.venv/bin/python -c "import yaml; h=yaml.safe_load(open('inventory/hosts.yml'))['all']['children']; print(next(v['ansible_host'] for g in h.values() for k,v in (g.get('hosts') or {}).items() if k=='$srv'))")
            run "SERVER_IP=$ip matrix.sh" "$@" ;;

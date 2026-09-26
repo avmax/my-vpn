@@ -80,6 +80,9 @@ freeze_probe() {
 
 say "# Matrix: $srv ($ip) from $net, $(date)"
 say ""
+b=$(curl -4 -s -o /dev/null --max-time 30 -r 0-20971519 -w '%{speed_download}' https://mirror.yandex.ru/ubuntu-releases/24.04/ubuntu-24.04.3-live-server-amd64.iso)
+say "Direct baseline, no tunnel (Yandex mirror, 20 MB): $(echo "$b" | awk '{printf "%.1f Mbps", $1*8/1e6}')"
+say ""
 say "## Reality + Vision (firefox fp), via local SOCKS 1080"
 tests/bin/xray run -config "clients/out/test/$srv/reality.json" >/dev/null 2>&1 & XP=$!
 sleep 2; measure "reality" --proxy socks5h://127.0.0.1:1080 && freeze_probe; kill $XP 2>/dev/null
