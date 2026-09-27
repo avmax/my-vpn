@@ -6,9 +6,9 @@ Measurements: [tests/RESULTS.md](tests/RESULTS.md).
 | Section | Status (2026-09-27) |
 |---|---|
 | [0. Control Mac, one-time](#0-control-mac-one-time) | done |
-| [1. Cloud server](#1-cloud-server) | `timeweb-almaty` running (temporary); EU server next |
-| [2. MacBook](#2-macbook) | done, on `timeweb-almaty` |
-| [3. iPhone](#3-iphone) | done, on `timeweb-almaty` |
+| [1. Cloud server](#1-cloud-server) | `timeweb-almaty` running (temporary), publishing subscriptions on `vpn.avmax.me`; EU server next |
+| [2. MacBook](#2-macbook) | done, subscribed to `vpn.avmax.me` |
+| [3. iPhone](#3-iphone) | done, subscribed to `vpn.avmax.me` |
 | [4. Keenetic router](#4-keenetic-router) | prepared, not started |
 | [5. Everyday use](#5-everyday-use) | |
 | [6. Troubleshooting](#6-troubleshooting) | |
@@ -26,8 +26,7 @@ cp inventory/hosts.example.yml inventory/hosts.yml
 cp tests/remote.env.example tests/remote.env      # the test Mac: host, user, folder
 ```
 
-In `ansible/group_vars/all/main.yml` set `vpn_domain` (for example `eu.yourdomain.tld`) and `acme_email` once you have a domain.
-Until then the generator warns that subscription URLs use a placeholder; everything else works.
+`ansible/group_vars/all/main.yml` sets `vpn_domain: vpn.avmax.me`, the name devices subscribe to (see 1.6).
 
 ---
 
@@ -107,20 +106,40 @@ tests/remote.sh matrix vdsina-ams mobile quick --detached --wait
 For the mobile run: start it while the test Mac is on home Wi-Fi, then switch the test Mac to the iPhone hotspot within
 15 minutes, wait ~15 minutes, switch back and run `tests/remote.sh collect`. Record the results in `tests/RESULTS.md`.
 
-### 1.6 Switch devices to a new server
+### 1.6 Publish subscriptions on vpn.avmax.me
 
-- **With a domain:** devices subscribed to `https://<domain>/s/<token>/<device>` get the new server on their next refresh
-  (Shadowrocket: the refresh icon next to the subscription).
-- **Without a domain:** import the new server's link on each device (sections 2 and 3), select it, delete the old one.
-- **Router:** copy the regenerated `04_outbounds.json` (section 4.4) and run `vpn-mode on`.
+Devices subscribe to `https://vpn.avmax.me/s/<token>/<device>` (their server list) and load the rules from
+`https://vpn.avmax.me/s/<token>/avmax-split.conf`; the rules file carries its own `update-url`, so Shadowrocket refreshes both.
+The exact addresses are in `clients/out/SUBSCRIPTION-URLS.txt`. Anyone without the token gets 404.
 
-### 1.7 Remove Xray from a shared host
+- DNS: an **A record `vpn` → the publishing server** at GoDaddy (avmax.me → DNS). Today: `92.118.115.34`.
+- Dedicated exit: `site.yml` publishes the files with its own Caddy.
+- Shared host (today): one validated `import` line and one site file in its Caddy; nothing else there changes:
+  ```bash
+  cd ansible && ../.venv/bin/ansible-playbook sub-shared.yml -l timeweb-almaty && cd ..
+  ```
+- After any change (rules, servers): `.venv/bin/python clients/gen.py`, then re-run the same playbook. Devices pick it up on their
+  next refresh (Shadowrocket: pull down on the server list, or wait).
+
+### 1.7 Switch devices to a new server
+
+Deploy the new server, add it to the inventory (move the old one out), `clients/gen.py`, publish (1.6). Devices get the new server
+through their subscription. When the publishing server itself changes, move the `vpn` DNS record; the addresses on the devices stay
+the same. Router: copy the regenerated `04_outbounds.json` (section 4.4) and run `vpn-mode on`.
+
+### 1.8 Remove Xray from a shared host
 
 ```bash
 ssh root@92.118.115.34 'systemctl disable --now xray xray-geo-update.timer; rm -rf /usr/local/bin/xray /usr/local/etc/xray /usr/local/share/xray /etc/systemd/system/xray*; ufw delete allow 8443/tcp'
 ```
 
-### 1.8 Moscow node (later)
+And the subscription site (then move the `vpn` DNS record to wherever subscriptions are published next):
+
+```bash
+ssh root@92.118.115.34 'sed -i "/import \/etc\/caddy\/avmax-vpn.caddy/d" /etc/caddy/Caddyfile && rm -rf /etc/caddy/avmax-vpn.caddy /var/www/avmax-vpn && systemctl reload caddy'
+```
+
+### 1.9 Moscow node (later)
 
 Rent the cheapest Moscow VPS, add it under `msk` in the inventory, then deploy it and the link from the exit:
 
@@ -137,24 +156,23 @@ Devices then use the `avmax-<server>-abroad` entry when travelling; Russian site
 
 Client: **Shadowrocket** from the Mac App Store (non-Russian Apple ID, $2.99, shared with the iPhone purchase).
 
-### 2.1 Add the server
+### 2.1 Add the subscription (servers)
 
-Opening the server link hands it to Shadowrocket, which adds it silently under **Local Servers** (its window must be open):
-
-```bash
-open "$(cat clients/out/mac/reality-timeweb-almaty.txt)"
-```
-
-Alternatives: with a domain, **+ → Type: Subscribe → URL** `https://<domain>/s/<token>/mac` (see `clients/out/SUBSCRIPTION-URLS.txt`).
-Shadowrocket's **Import…** button does *not* accept plain link files or Clash YAML.
-
-### 2.2 Load the rules
+With Shadowrocket's window open:
 
 ```bash
-open -a Shadowrocket clients/out/sub/avmax-split.conf
+u=$(awk '/^mac:/ {print $2}' clients/out/SUBSCRIPTION-URLS.txt)
+open "shadowrocket://add/sub://$(printf %s "$u" | base64 | tr '+/' '-_' | tr -d '=\n')?remark=avmax"
 ```
 
-Then in Shadowrocket: **Config** tab → `avmax-split.conf` → **Use Config**, and on the Home tab **Global Routing → Config**.
+A group **avmax** appears with the servers. Alternatively **+ → Type: Subscribe → URL** (the `mac:` line). Shadowrocket's **Import…**
+button does *not* accept link files or Clash YAML. Without a domain, `open "vless://…"` adds a single server silently.
+
+### 2.2 Add the rules (self-updating)
+
+**Config** tab → **+** → paste `https://vpn.avmax.me/s/<token>/avmax-split.conf` → download → **Use Config**; on the Home tab
+**Global Routing → Config**. Check with **Edit Plain Text**: the file starts with `update-url = …`.
+Shadowrocket won't delete the config that's in use: switch to **default.conf** first when replacing it.
 
 ### 2.3 Connect
 
@@ -178,29 +196,25 @@ Then open chatgpt.com, claude.ai, youtube.com, and gosuslugi.ru in the browser.
 
 Client: **Shadowrocket** from the App Store with the non-Russian Apple ID.
 
-### 3.1 Add the server
+### 3.1 Add the subscription and the rules
 
-On the Mac, show the QR code, then in Shadowrocket on the iPhone tap the scan icon (top left) and point it at the screen:
+`clients/gen.py` writes two QR codes per device. Show them on the Mac and scan each with Shadowrocket's scan icon (top left):
 
 ```bash
-open clients/out/iphone/reality-timeweb-almaty.png
+open clients/out/iphone/shadowrocket-1-subscribe.png     # adds the subscription (group "avmax")
+open clients/out/iphone/shadowrocket-2-rules.png         # adds the self-updating avmax-split.conf
 ```
 
-The QR code is a login: close it afterwards and don't photograph or share it. With a domain, subscribe to
-`https://<domain>/s/<token>/iphone` instead.
+Then select the server inside the **avmax** group, and **Config → avmax-split.conf → Use Config**, **Global Routing → Config**.
+The codes carry the subscription token: close them afterwards and don't photograph or share them.
+Fallback without a domain: `open clients/out/iphone/reality-<server>.png` (one server) and AirDrop `clients/out/sub/avmax-split.conf`.
 
-### 3.2 Load the rules
-
-AirDrop `clients/out/sub/avmax-split.conf` from the Mac to the iPhone and choose **Shadowrocket** in the share sheet.
-Then **Config** → `avmax-split.conf` → **Use Config**, and **Global Routing → Config**. With a domain, add the config by URL
-instead: `https://<domain>/s/<token>/avmax-split.conf`.
-
-### 3.3 Connect and set On Demand
+### 3.2 Connect and set On Demand
 
 Turn on the switch and allow the VPN configuration. **Settings → On Demand:** connect on **Cellular** and on **Wi-Fi**.
 After the router is set up, add *disconnect* on SSID `Keenetic-0650`.
 
-### 3.4 Check
+### 3.3 Check
 
 On cellular, open `https://ip.beget.ru` (should show your mobile address) and `https://ifconfig.co` (should show the exit
 server). Then open ChatGPT, Claude and YouTube.
@@ -310,12 +324,12 @@ a CIDR. To grow a list from one domain, review the output before applying:
 .venv/bin/python rules/expand.py yandex.ru --apply direct    # append to custom.json
 ```
 
-Then `.venv/bin/python clients/gen.py` and redistribute: re-open `avmax-split.conf` in Shadowrocket (Mac, iPhone), copy the XKeen
-files to the router (4.4), and for the abroad rules redeploy the exit.
+Then `.venv/bin/python clients/gen.py` and publish (1.6): the Mac and iPhone update themselves. Copy the XKeen files to the
+router (4.4), and for the abroad rules redeploy the exit.
 
 ### Travelling abroad
 
-Select `avmax-<server>-abroad` in Shadowrocket (needs the Moscow node, 1.8). Russian sites then see a Moscow address.
+Select `avmax-<server>-abroad` in Shadowrocket (needs the Moscow node, 1.9). Russian sites then see a Moscow address.
 
 ### Turning the VPN off
 

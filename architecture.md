@@ -93,14 +93,21 @@ site's own links, optionally Claude) for review before it is appended to `custom
 | Playbook | `ansible/site.yml` (base, awg, caddy, xray) | `ansible/xray-only.yml` (xray only) |
 | Open ports | 22, 80 (ACME + redirect), 443 (Reality; others see the real site), one UDP (AWG) | 8443 added; everything else untouched |
 | Reality target | own Caddy site on `eu.<domain>` | a neutral site (`kolesa.kz`) |
-| Subscriptions | `https://<domain>/s/<token>/<device>` and `/avmax-split.conf` | none (no domain, no Caddy); import by link |
+| Subscriptions | own Caddy, `site.yml` | `sub-shared.yml`: one import line in the host's Caddy |
 | Safety | — | host is in inventory group `no_deploy`, which both plays of `site.yml` exclude |
 
 ## Distributing configs to devices
 
-- **With a domain** (target): each device subscribes to `https://<domain>/s/<token>/<device>` (base64 list of its server links)
-  and loads rules from `…/avmax-split.conf`. Switching or adding servers = redeploy + `clients/gen.py`; devices pick it up on refresh.
-- **Without a domain** (today): server links are imported directly (`open "vless://…"` on the Mac, QR on the iPhone), rules by file.
+Devices subscribe to **`vpn.avmax.me`** (A record at GoDaddy): `https://vpn.avmax.me/s/<token>/<device>` is the base64 list of that
+device's server links, `…/avmax-split.conf` the rules, which name themselves as `update-url` so Shadowrocket refreshes them.
+Wrong paths and the bare domain return 404.
+
+- **Today:** the shared host `timeweb-almaty` publishes them: `ansible/sub-shared.yml` adds one validated `import` line and one site
+  file to its Caddy and copies the files; its production sites are untouched.
+- **Later:** a dedicated exit publishes them with its own Caddy (`site.yml`); moving the `vpn` DNS record moves the service,
+  and the addresses on the devices never change.
+- **Enrolment:** Mac via the `shadowrocket://add/sub://…` link and the config URL; iPhone by scanning two generated QR codes
+  (`clients/out/<device>/shadowrocket-1-subscribe.png`, `…-2-rules.png`).
 
 ## Secrets
 

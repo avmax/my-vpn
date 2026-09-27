@@ -14,8 +14,9 @@ Keenetic router covers every device; away from home the MacBook and iPhone switc
 |---|---|
 | Network recon (home MGTS, Tinkoff mobile) | done |
 | Exit server | `timeweb-almaty` (Timeweb, Almaty) running as a temporary exit on port 8443; routes through Moscow, so an EU server comes next |
-| MacBook | done: Shadowrocket, split rules, Amnezia retired |
-| iPhone | done: Shadowrocket via QR code + AirDropped rules |
+| Subscriptions | `vpn.avmax.me` live: devices refresh servers and rules by themselves |
+| MacBook | done: Shadowrocket, subscribed to `vpn.avmax.me`, Amnezia retired |
+| iPhone | done: Shadowrocket, subscribed to `vpn.avmax.me` |
 | Keenetic router (KN-1012, KeeneticOS 5.1.6) | prepared (USB tooling, configs), not started |
 | EU exit server (VDSina Amsterdam or UpCloud Helsinki) | after the router |
 | Moscow node for travelling | later |
@@ -23,7 +24,7 @@ Keenetic router covers every device; away from home the MacBook and iPhone switc
 ## Layout
 
 ```
-ansible/          site.yml (dedicated exit: base, awg, caddy, xray, awg-link), xray-only.yml (shared hosts), group_vars
+ansible/          site.yml (dedicated exit), xray-only.yml + sub-shared.yml (shared hosts), group_vars
 inventory/        hosts.yml (gitignored; copy from hosts.example.yml); group no_deploy protects shared hosts from site.yml
 secrets/          secrets.yml from scripts/init-secrets.py (gitignored; back it up)
 clients/gen.py    writes clients/out/ (gitignored): server links + QR codes, avmax-split.conf, subscriptions, XKeen and AWG files

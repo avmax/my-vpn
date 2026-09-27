@@ -92,6 +92,12 @@ iPhone (iOS 26.6.1), Shadowrocket → `avmax-timeweb-almaty` imported by scannin
 `avmax-split.conf` by AirDrop. On home Wi-Fi: ifconfig.co sees 92.118.115.34 (KZ), ip.beget.ru sees the home address;
 server latency 77 ms in Shadowrocket's test.
 
+## Subscriptions on vpn.avmax.me (2026-09-27)
+
+A record `vpn.avmax.me → 92.118.115.34` at GoDaddy (published within ~5 minutes of saving). `sub-shared.yml` on timeweb-almaty:
+Let's Encrypt certificate issued, bare domain / wrong token / folder listing all 404, production sites still 200.
+Mac and iPhone re-enrolled: subscription group "avmax" + `avmax-split.conf` from URL (with `update-url`); split re-verified on the Mac.
+
 ## Decision
 
 - EU node: 
