@@ -17,7 +17,7 @@ Keenetic router covers every device; away from home the MacBook and iPhone switc
 | Subscriptions | `vpn.avmax.me` live: devices refresh servers and rules by themselves |
 | MacBook | done: Shadowrocket, subscribed to `vpn.avmax.me`, Amnezia retired |
 | iPhone | done: Shadowrocket, subscribed to `vpn.avmax.me` |
-| Keenetic router (KN-1012, KeeneticOS 5.1.6) | prepared (USB tooling, configs), not started |
+| Keenetic router (KN-1012, KeeneticOS 5.1.6) | XKeen running; test Mac proxied through policy `xkeen`; whole home next |
 | EU exit server (VDSina Amsterdam or UpCloud Helsinki) | after the router |
 | Moscow node for travelling | later |
 

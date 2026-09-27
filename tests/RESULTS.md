@@ -105,6 +105,15 @@ Components OPKG + DoT/DoH proxies installed; DoH servers dns.google and cloudfla
 IPv6 "off" on the ISP connection did not stop LAN devices getting 2a00:… addresses; to be handled by XKeen's IPv6 switch.
 During the router reboot the personal Mac fell back from Shadowrocket to Amnezia (Shadowrocket On Demand was not enabled yet).
 
+## Step 4: router, stage 1 (2026-09-28)
+
+Keenetic Giga KN-1012, Entware on a 32 GB USB drive (dropbear on port 22, keys in /opt/etc/dropbear/authorized_keys),
+component "Kernel modules for Netfilter", XKeen 2.0 with Xray 26.7.28 in Hybrid mode (TCP redirect + UDP TProxy on 1181),
+runetfreedom geo files, XKeen GeoIPSET for Russian subnets. Policy `xkeen` (Policy0) with Провайдер 1, only the test Mac bound.
+Test Mac with no VPN app: foreign sites see 92.118.115.34 (KZ), Russian sites see the home address, YouTube 200 in 1.1 s,
+claude.ai sees KZ, ya.ru 0.06 s; 50 MB via VPN 103 Mbps, 20 MB direct 142 Mbps (measured before the binding fix, direct path).
+IPv6: after the router reboot LAN devices no longer get global IPv6; IPv6 attempts are captured by XKeen. Personal Mac unaffected.
+
 ## Decision
 
 - EU node: 

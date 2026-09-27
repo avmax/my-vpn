@@ -9,7 +9,7 @@ Measurements: [tests/RESULTS.md](tests/RESULTS.md).
 | [1. Cloud server](#1-cloud-server) | `timeweb-almaty` running (temporary), publishing subscriptions on `vpn.avmax.me`; EU server next |
 | [2. MacBook](#2-macbook) | done, subscribed to `vpn.avmax.me` |
 | [3. iPhone](#3-iphone) | done, subscribed to `vpn.avmax.me` |
-| [4. Keenetic router](#4-keenetic-router) | 4.1 done (components, DoH, port 5443); waiting for the flash drive |
+| [4. Keenetic router](#4-keenetic-router) | XKeen running; test Mac proxied via policy `xkeen`; whole home next |
 | [5. Everyday use](#5-everyday-use) | |
 | [6. Troubleshooting](#6-troubleshooting) | |
 
@@ -264,25 +264,32 @@ Once, in your own Terminal (you type the passwords; afterwards logins use the ke
 
 ### 4.4 XKeen and our rules
 
-On the router:
+Router components needed (4.1 plus): **Kernel modules for Netfilter** (XKeen loads `xt_TPROXY.ko`, `xt_socket.ko`).
+
+Install XKeen (the bootstrap installs the `xkeen` command, then starts its interactive setup, so run it in a real terminal):
 
 ```bash
-opkg update && opkg upgrade && opkg install curl tar && cd /tmp && sh -c "$(curl -sSL https://raw.githubusercontent.com/jameszeroX/XKeen/main/install.sh)"
+ssh -t root@192.168.1.1 'opkg update && opkg install curl tar && sh -c "$(curl -fsSL https://raw.githubusercontent.com/jameszeroX/XKeen/main/install.sh)" x -s'
 ```
 
-Installer answers: latest XKeen 2.x → core **Xray**, version **26.7.28** (enter manually) → any geosite/geoip (replaced below) →
-mode **TProxy** → **no policy** (proxy all router clients).
+Answers: core **1** (Xray) → release **9**, then `v26.7.28` → GeoSite **0** and GeoIP **0** (we use runetfreedom's files) →
+exclude Russian IPs **1** → auto-update **1**, daily 05:00 → start on boot **1**. Setup does not start proxying.
 
-From the Mac:
+Our configs (from the Mac, after `clients/gen.py`):
 
 ```bash
-R=root@192.168.1.1; P=22
-scp -P $P clients/out/keenetic/xkeen/04_outbounds.json clients/out/keenetic/xkeen/05_routing.json $R:/opt/etc/xray/configs/
-ssh -p $P $R mkdir -p /opt/etc/xray/routing && scp -P $P clients/out/keenetic/xkeen/routing/*.json $R:/opt/etc/xray/routing/   # variants: never in configs/
-scp -P $P clients/out/keenetic/xkeen/ip_exclude.lst $R:/opt/etc/xkeen/ip_exclude.lst
-scp -P $P router/vpn-mode.sh $R:/opt/bin/vpn-mode
-ssh -p $P $R 'chmod +x /opt/bin/vpn-mode && vpn-mode geo && vpn-mode on'
+R=root@192.168.1.1
+scp clients/out/keenetic/xkeen/04_outbounds.json clients/out/keenetic/xkeen/05_routing.json $R:/opt/etc/xray/configs/
+ssh $R mkdir -p /opt/etc/xray/routing && scp clients/out/keenetic/xkeen/routing/*.json $R:/opt/etc/xray/routing/   # never in configs/
+scp router/vpn-mode.sh $R:/opt/bin/vpn-mode
+ssh $R 'chmod +x /opt/bin/vpn-mode && vpn-mode geo && XRAY_LOCATION_ASSET=/opt/etc/xray/dat xray run -test -confdir /opt/etc/xray/configs'
 ```
+
+**Who is proxied.** If a connection policy named `xkeen` exists, XKeen proxies only its members; without it, every home device.
+Roll out in stages: **Internet → Connection policies → Add policy `xkeen`**, tick **Провайдер 1** in it (so its members keep
+internet when XKeen is off), then **Policy Bindings → Default policy → drag devices onto `xkeen`**. Whole home later: make `xkeen`
+the home segment's default policy. Check a binding from the router: `ndmc -c "show running-config" | grep 'host <mac>'` shows
+`policy Policy0`. Then `vpn-mode on`.
 
 ### 4.5 The switch
 
