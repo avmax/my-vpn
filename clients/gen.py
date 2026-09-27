@@ -354,6 +354,10 @@ def main():
                   awg_conf(d["msk_awg_ip"], ds["awg_msk"], sec["awg_msk"]["public_key"], msk_ip, v["awg_port"],
                            sec["awg_msk"], v["awg_mtu"]))
         write(OUT / "sub" / name, base64.b64encode("\n".join(sub_lines).encode()).decode() + "\n")
+        # one-scan enrolment for Shadowrocket: add this device's subscription, then the self-updating rules
+        sub_link = "sub://" + base64.urlsafe_b64encode(f"{sub_base}{name}".encode()).decode().rstrip("=")
+        qr(OUT / name / "shadowrocket-1-subscribe.png", f"shadowrocket://add/{sub_link}?remark=avmax")
+        qr(OUT / name / "shadowrocket-2-rules.png", f"shadowrocket://config/add/{sub_base}avmax-split.conf")
 
     # Keenetic / XKeen files use the primary exit (group eu if present, else first candidate)
     primary_name, (primary_ip, primary_hv) = next(iter(exits.items()))
