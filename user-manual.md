@@ -277,10 +277,11 @@ From the Mac:
 
 ```bash
 R=root@192.168.1.1; P=22
-scp -P $P clients/out/keenetic/xkeen/04_outbounds.json clients/out/keenetic/xkeen/05_routing*.json $R:/opt/etc/xray/configs/
+scp -P $P clients/out/keenetic/xkeen/04_outbounds.json clients/out/keenetic/xkeen/05_routing.json $R:/opt/etc/xray/configs/
+ssh -p $P $R mkdir -p /opt/etc/xray/routing && scp -P $P clients/out/keenetic/xkeen/routing/*.json $R:/opt/etc/xray/routing/   # variants: never in configs/
 scp -P $P clients/out/keenetic/xkeen/ip_exclude.lst $R:/opt/etc/xkeen/ip_exclude.lst
 scp -P $P router/vpn-mode.sh $R:/opt/bin/vpn-mode
-ssh -p $P $R 'chmod +x /opt/bin/vpn-mode; cd /opt/etc/xray/dat && curl -fsSL -o geoip.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat && curl -fsSL -o geosite.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat && vpn-mode on'
+ssh -p $P $R 'chmod +x /opt/bin/vpn-mode && vpn-mode geo && vpn-mode on'
 ```
 
 ### 4.5 The switch

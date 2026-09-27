@@ -365,8 +365,8 @@ def main():
     write(OUT / "keenetic/xkeen/04_outbounds.json",
           json.dumps(xkeen_outbounds(primary_ip, kd["uuid_home"], kd["reality_short_id"], primary_hv, sec), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/05_routing.json", json.dumps(xkeen_routing(), indent=2) + "\n")
-    write(OUT / "keenetic/xkeen/05_routing_via_reality.json", json.dumps(xkeen_routing(), indent=2) + "\n")
-    write(OUT / "keenetic/xkeen/05_routing_via_awg.json", json.dumps(xkeen_routing("awg-out"), indent=2) + "\n")
+    write(OUT / "keenetic/xkeen/routing/05_routing_via_reality.json", json.dumps(xkeen_routing(), indent=2) + "\n")
+    write(OUT / "keenetic/xkeen/routing/05_routing_via_awg.json", json.dumps(xkeen_routing("awg-out"), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/ip_exclude.lst", "\n".join(split_rules(load_rules()["direct"])[1]) + "\n")
 
     # Local Xray client configs for the Phase 1 matrix (mac's home UUID)
