@@ -98,6 +98,13 @@ A record `vpn.avmax.me → 92.118.115.34` at GoDaddy (published within ~5 minute
 Let's Encrypt certificate issued, bare domain / wrong token / folder listing all 404, production sites still 200.
 Mac and iPhone re-enrolled: subscription group "avmax" + `avmax-split.conf` from URL (with `update-url`); split re-verified on the Mac.
 
+## Router prep (2026-09-27, before the flash drive)
+
+Components OPKG + DoT/DoH proxies installed; DoH servers dns.google and cloudflare-dns.com added; web admin HTTPS moved to 5443
+(443 closed, verified). Router DNS resolves rutracker.org (blocked by MGTS DNS), Google sees the query from Cloudflare → encrypted.
+IPv6 "off" on the ISP connection did not stop LAN devices getting 2a00:… addresses; to be handled by XKeen's IPv6 switch.
+During the router reboot the personal Mac fell back from Shadowrocket to Amnezia (Shadowrocket On Demand was not enabled yet).
+
 ## Decision
 
 - EU node: 

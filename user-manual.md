@@ -9,7 +9,7 @@ Measurements: [tests/RESULTS.md](tests/RESULTS.md).
 | [1. Cloud server](#1-cloud-server) | `timeweb-almaty` running (temporary), publishing subscriptions on `vpn.avmax.me`; EU server next |
 | [2. MacBook](#2-macbook) | done, subscribed to `vpn.avmax.me` |
 | [3. iPhone](#3-iphone) | done, subscribed to `vpn.avmax.me` |
-| [4. Keenetic router](#4-keenetic-router) | prepared, not started |
+| [4. Keenetic router](#4-keenetic-router) | 4.1 done (components, DoH, port 5443); waiting for the flash drive |
 | [5. Everyday use](#5-everyday-use) | |
 | [6. Troubleshooting](#6-troubleshooting) | |
 
@@ -231,7 +231,9 @@ This router: **Keenetic Giga KN-1012** (ARM64), KeeneticOS **5.1.6**, admin at `
 1. **System → Components:** add **OPKG** ("Open Package support"). The router reboots.
 2. **Internet → DNS:** enable DNS-over-TLS or DNS-over-HTTPS profiles (XKeen requires encrypted DNS on the router).
 3. **System → Access:** move the web admin off port 443 (XKeen needs 443 free).
-4. **Internet → ISP connection → IPv6:** turn IPv6 off (MGTS hands out IPv6; it would bypass the tunnel).
+4. **Internet → ISP connection → IPv6 configuration:** set it to off (MGTS hands out IPv6; it would bypass the tunnel).
+   On KeeneticOS 5 this may not stop the router handing out IPv6 addresses (seen 2026-09-27: devices still got `2a00:…`
+   addresses). XKeen's installer offers its own IPv6 switch for this; use it in 4.4 and check with `curl -6 https://ifconfig.co`.
 
 ### 4.2 USB stick with Entware
 
