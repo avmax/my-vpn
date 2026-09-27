@@ -21,13 +21,16 @@ echo "$info" | grep -E 'Device / Media Name|Disk Size'
 read -r -p "ALL DATA on /dev/$d will be erased. Type YES to continue: " ok
 [ "$ok" = YES ] || { echo "aborted"; exit 1; }
 
-stage=$(mktemp -d); trap 'rm -rf "$stage"' EXIT
+stage=$(mktemp -d); trap 'sudo rm -rf "$stage"' EXIT
 mkdir -p "$stage/install"
 curl -fL --retry 3 -o "$stage/install/EN_aarch64-installer.tar.gz" "$INSTALLER_URL"
 tar -tzf "$stage/install/EN_aarch64-installer.tar.gz" >/dev/null   # archive is intact
 
 diskutil eraseDisk FAT32 OPKG MBR "/dev/$d"     # creates the partition table and ${d}s1
 diskutil unmountDisk "/dev/$d"
+# The staged files must belong to root: mkfs -d copies owners, and the drive's top folder becomes the router's /opt.
+# Owned by this Mac's user (uid 501), dropbear on the router refuses every SSH key (seen 2026-09-28).
+chmod 755 "$stage" "$stage/install"; sudo chown -R 0:0 "$stage"
 # ext4 with the installer already inside (-d); features newer kernels add are switched off for the router's kernel
 sudo "$MKFS" -F -L OPKG -O ^metadata_csum,^metadata_csum_seed,^orphan_file -d "$stage" "/dev/${d}s1"
 sudo "$DEBUGFS" -R "ls -l /install" "/dev/${d}s1" 2>/dev/null | grep -q EN_aarch64-installer || { echo "installer missing on the stick" >&2; exit 1; }
