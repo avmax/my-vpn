@@ -250,12 +250,16 @@ until Entware reports it is installed.
 
 ### 4.3 Key-based access
 
-Entware's SSH is port 222, user `root`, default password `keenetic`. Once, from the Mac (you type the password; afterwards every
-login uses the key):
+Entware's SSH (dropbear) listens on **port 22** on this router (222 only if Keenetic's own SSH component is installed).
+Once, in your own Terminal (you type the passwords; afterwards logins use the key):
 
-```bash
-ssh -p 222 root@192.168.1.1 'passwd && mkdir -p /opt/root/.ssh && cat >> /opt/root/.ssh/authorized_keys' < ~/.ssh/id_ed25519.pub
-```
+1. `ssh root@192.168.1.1`, password `keenetic`, answer `yes` to the fingerprint question.
+2. On the router: `passwd`, set a new root password (keep it in your password manager).
+3. On the router, with the line from the Mac's `~/.ssh/id_ed25519.pub` pasted between the quotes:
+   ```sh
+   mkdir -p /opt/root/.ssh && echo '<public key line>' >> /opt/root/.ssh/authorized_keys && chmod 700 /opt/root/.ssh && chmod 600 /opt/root/.ssh/authorized_keys
+   ```
+4. `exit`, then check from the Mac: `ssh -o BatchMode=yes root@192.168.1.1 true` (no password prompt = done).
 
 ### 4.4 XKeen and our rules
 
@@ -271,7 +275,7 @@ mode **TProxy** → **no policy** (proxy all router clients).
 From the Mac:
 
 ```bash
-R=root@192.168.1.1; P=222
+R=root@192.168.1.1; P=22
 scp -P $P clients/out/keenetic/xkeen/04_outbounds.json clients/out/keenetic/xkeen/05_routing*.json $R:/opt/etc/xray/configs/
 scp -P $P clients/out/keenetic/xkeen/ip_exclude.lst $R:/opt/etc/xkeen/ip_exclude.lst
 scp -P $P router/vpn-mode.sh $R:/opt/bin/vpn-mode
@@ -281,13 +285,13 @@ ssh -p $P $R 'chmod +x /opt/bin/vpn-mode; cd /opt/etc/xray/dat && curl -fsSL -o 
 ### 4.5 The switch
 
 ```bash
-ssh -p 222 root@192.168.1.1 vpn-mode on       # Russian direct, foreign via VPN
-ssh -p 222 root@192.168.1.1 vpn-mode off      # everything direct
-ssh -p 222 root@192.168.1.1 vpn-mode status
+ssh root@192.168.1.1 vpn-mode on       # Russian direct, foreign via VPN
+ssh root@192.168.1.1 vpn-mode off      # everything direct
+ssh root@192.168.1.1 vpn-mode status
 ```
 
 **One tap:** in the Shortcuts app create "VPN on" / "VPN off" with the action **Run Script Over SSH** (host `192.168.1.1`,
-port `222`, user `root`, script `vpn-mode on` / `vpn-mode off`). Add them to the Home Screen or the menu bar.
+port `22`, user `root`, script `vpn-mode on` / `vpn-mode off`). Add them to the Home Screen or the menu bar.
 
 **Keep one device direct:** add its LAN IP to `ip_exclude.lst` and copy the file again.
 
@@ -296,7 +300,7 @@ port `222`, user `root`, script `vpn-mode on` / `vpn-mode off`). Add them to the
 Only for a dedicated exit (it runs AmneziaWG; `timeweb-almaty` doesn't).
 1. **Internet → Other connections → WireGuard → Load from file:** `clients/out/keenetic/awg-<server>.conf`.
 2. Create policy `awg-fallback` whose only connection is that tunnel; assign no devices.
-3. `ssh -p 222 root@192.168.1.1 xkeen -pbr codes` → put the number for `awg-fallback` into `ansible/group_vars/all/main.yml`
+3. `ssh root@192.168.1.1 xkeen -pbr codes` → put the number for `awg-fallback` into `ansible/group_vars/all/main.yml`
    as `xkeen_awg_mark`, run `clients/gen.py`, copy `04_outbounds.json` again.
 4. `vpn-mode via awg` (back: `vpn-mode via reality`).
 
