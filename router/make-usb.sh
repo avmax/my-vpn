@@ -29,7 +29,6 @@ tar -tzf "$stage/install/EN_aarch64-installer.tar.gz" >/dev/null   # archive is 
 diskutil eraseDisk FAT32 OPKG MBR "/dev/$d"     # creates the partition table and ${d}s1
 diskutil unmountDisk "/dev/$d"
 # The staged files must belong to root: mkfs -d copies owners, and the drive's top folder becomes the router's /opt.
-# Owned by this Mac's user (uid 501), dropbear on the router refuses every SSH key (seen 2026-09-28).
 chmod 755 "$stage" "$stage/install"; sudo chown -R 0:0 "$stage"
 # ext4 with the installer already inside (-d); features newer kernels add are switched off for the router's kernel
 sudo "$MKFS" -F -L OPKG -O ^metadata_csum,^metadata_csum_seed,^orphan_file -d "$stage" "/dev/${d}s1"

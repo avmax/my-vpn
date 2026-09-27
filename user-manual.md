@@ -255,9 +255,10 @@ Once, in your own Terminal (you type the passwords; afterwards logins use the ke
 
 1. `ssh root@192.168.1.1`, password `keenetic`, answer `yes` to the fingerprint question.
 2. On the router: `passwd`, set a new root password (keep it in your password manager).
-3. On the router, with the line from the Mac's `~/.ssh/id_ed25519.pub` pasted between the quotes:
+3. On the router, with the line from the Mac's `~/.ssh/id_ed25519.pub` pasted between the quotes. **This dropbear build reads
+   `/opt/etc/dropbear/authorized_keys`**, not `~/.ssh/authorized_keys` (it silently ignored the latter; `dropbear -D` can override):
    ```sh
-   mkdir -p /opt/root/.ssh && echo '<public key line>' >> /opt/root/.ssh/authorized_keys && chmod 700 /opt/root/.ssh && chmod 600 /opt/root/.ssh/authorized_keys
+   echo '<public key line>' >> /opt/etc/dropbear/authorized_keys && chmod 600 /opt/etc/dropbear/authorized_keys
    ```
 4. `exit`, then check from the Mac: `ssh -o BatchMode=yes root@192.168.1.1 true` (no password prompt = done).
 
