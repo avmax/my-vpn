@@ -7,7 +7,12 @@
 set -u
 ip="${1:?server IP}"; port="${2:-22}"
 echo "== home line (router, direct MGTS) =="
-ssh -o BatchMode=yes -o ConnectTimeout=8 root@192.168.1.1 "echo \"  ping: \$(ping -c 3 -W 2 $ip 2>&1 | tail -1)\"; b=\$(curl -s --max-time 10 telnet://$ip:$port </dev/null 2>/dev/null | head -c 40 | tr -d '\r'); echo \"  tcp $port: \${b:-NO ANSWER}\"" 2>&1
+# Busybox nc has no flags: `(sleep N) | nc` holds the flow open. curl telnet:// returned nothing even for good hosts.
+# 443: "refused" in 0s = packets reach the host; a timeout = dropped. The real TLS test comes after install.
+ssh -o BatchMode=yes -o ConnectTimeout=8 root@192.168.1.1 "echo \"  ping: \$(ping -c 3 -W 2 $ip 2>&1 | tail -1)\"
+echo \"  tcp $port silent: \$( (sleep 5) | /opt/bin/nc $ip $port 2>&1 | head -n1 | head -c 50 | tr -d '\r')\"
+echo \"  tcp $port with SSH client banner: \$( (printf 'SSH-2.0-OpenSSH_10.3\r\n'; sleep 5) | /opt/bin/nc $ip $port 2>&1 | head -n1 | head -c 50 | tr -d '\r')\"
+curl -sk -o /dev/null --connect-timeout 8 https://$ip/; echo \"  tcp 443: curl rc=\$? (7 = refused/reachable, 28 = dropped, 0/35 = TLS answered)\"" 2>&1
 echo "== check-host.net nodes =="
 id=$(curl -s --max-time 15 -H 'Accept: application/json' "https://check-host.net/check-tcp?host=$ip:$port&node=ru1.node.check-host.net&node=ru2.node.check-host.net&node=ru3.node.check-host.net&node=ru4.node.check-host.net&node=fi1.node.check-host.net" | grep -oE '"request_id":"[a-z0-9]+"' | cut -d'"' -f4)
 [ -n "$id" ] || { echo "  check-host.net unavailable"; exit 0; }
