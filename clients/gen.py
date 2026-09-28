@@ -39,9 +39,15 @@ V2FLY_RAW = "https://raw.githubusercontent.com/v2fly/domain-list-community/maste
 CACHE = ROOT / "rules" / ".cache"
 
 
+OWN_SERVERS = []  # filled in main(): our own exit/Moscow server IPs are always reached directly
+
+
 def load_rules():
     r = json.loads(RULES.read_text()) if RULES.exists() else {}
-    return {k: [x for x in r.get(k, []) if not x.startswith("_")] for k in ("direct", "proxy", "block")}
+    rules = {k: [x for x in r.get(k, []) if not x.startswith("_")] for k in ("direct", "proxy", "block")}
+    # Our own servers: never through another VPN hop (management over SSH, no tunnel-in-tunnel).
+    rules["direct"] += [f"{ip}/32" for ip in OWN_SERVERS if f"{ip}/32" not in rules["direct"]]
+    return rules
 
 
 def is_cidr(x):
@@ -298,6 +304,7 @@ def main():
         print("inventory/hosts.yml missing: copy inventory/hosts.example.yml and fill in server IPs", file=sys.stderr)
         return 1
     hosts, msk_ip = inventory_hosts(load_yaml(inv_path))
+    OWN_SERVERS[:] = sorted({h["ansible_host"] for h in hosts.values()} | ({msk_ip} if msk_ip else set()))
     exits = {n: (h["ansible_host"], {**v, **h, "vpn_domain": h.get("reality_server_name", v["vpn_domain"])})
              for n, h in hosts.items()}
     if not exits:
@@ -335,8 +342,11 @@ def main():
             qr(OUT / name / f"reality-{sname}.png", r)
             write(OUT / name / f"xhttp-{sname}.txt", x + "\n")
             qr(OUT / name / f"xhttp-{sname}.png", x)
-            sub_lines += [r] if hv.get("_shared") else [r, x]
-            if d.get("abroad") and msk_ip:
+            if hv.get("ready") is False:  # deployed but not yet tested: files are generated, subscriptions skip it
+                pass
+            else:
+                sub_lines += [r] if hv.get("_shared") else [r, x]
+            if d.get("abroad") and msk_ip and hv.get("ready") is not False:
                 a = reality_uri(ds["uuid_abroad"], ip, hv, sec, ds["reality_short_id"], f"avmax-{sname}-abroad")
                 write(OUT / name / f"reality-abroad-{sname}.txt", a + "\n")
                 qr(OUT / name / f"reality-abroad-{sname}.png", a)
