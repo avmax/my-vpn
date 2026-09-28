@@ -131,6 +131,18 @@ sent (silent TCP to 22 gets the server banner); a temporary Xray client on the r
 while the identical test to Almaty works (exit in 0.65 s). Verdict: VDSina's network is filtered on MGTS; a new IP did not help.
 Lesson: the decisive pre-rent check is TLS/443 from the home line, not SSH or ping.
 
+## hostung.net S-1 "Germany" (2026-09-29): passes from home
+
+213.209.135.6 (Cherry Servers AS214159; ipinfo, Cloudflare and Google say DE/Augsburg, ip-api says Stockholm, and the route
+leaves via Telia Stockholm). $3.19/month, 1 vCPU, 1 GB. **From MGTS (router, direct) before install:** ping 25 ms, SSH banner
+answered even after the client banner (VDSina froze here), TCP 443 refused instantly (reachable). After `site.yml` (first run
+failed on the dpkg lock held by first-boot unattended-upgrades; the rerun passed): TLS to vpnhostung.avmax.me:443 from the
+router 3/3 in 0.15 s; a temporary Xray Reality client on the router exits in Augsburg DE, generate_204 0.14 s, 100 MB CacheFly
+in 3.0 s (~280 Mbit/s). Service checks from the server: ChatGPT/Gemini/Copilot/Perplexity/Prime Video/TikTok DE, YouTube GL=DE,
+Google search 200 (no captcha), Drive 302, api.anthropic.com 401; claude.ai and chatgpt.com give curl the Cloudflare challenge
+(same as Almaty, where both work in a browser); Netflix title pages land on /de-en/ (UnlockTests says NO, as for VDSina).
+Added to subscriptions next to Almaty; browser checks on a device pending.
+
 ## Decision
 
 - EU node: 
