@@ -39,7 +39,7 @@ provider's SSH-key field. The server is only kept if it passes 1.3.
 
 | Provider | Location | Notes |
 |---|---|---|
-| VDSina | Amsterdam | first candidate: documented Netflix/YouTube/ChatGPT pass; Russian cards, crypto; daily billing |
+| VDSina | Amsterdam | **failed 2026-09-28:** its address was unreachable from MGTS (blocked on part of Russian networks) |
 | UpCloud | Helsinki | Finnish, no Russian network; foreign card needed |
 | HostKey | Helsinki, Amsterdam | full speed from home, but its terms exclude Russian residents |
 | Avoid | — | Hetzner, Vultr, Linode, Scaleway, DigitalOcean, Contabo (blocked or throttled); Aeza, PQ.Hosting (sanctioned); Timeweb (routes through Russia) |
@@ -65,6 +65,15 @@ neutral Reality target, so `site.yml` can never touch it:
 ```
 
 ### 1.3 Check it before installing anything
+
+First, can your home line reach it at all? (VDSina Amsterdam 146.103.101.8 answered from Finland but not from MGTS or two of
+three Russian test points.)
+
+```bash
+tests/reach.sh 203.0.113.10          # router-direct ping + SSH banner from home, and check-host.net nodes in Russia and Finland
+```
+
+Only if the home line reaches it, continue:
 
 ```bash
 UT=0 tests/availability.sh vdsina-ams      # UT=1 also installs and runs the UnlockTests suite on the server

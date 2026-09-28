@@ -114,6 +114,12 @@ Test Mac with no VPN app: foreign sites see 92.118.115.34 (KZ), Russian sites se
 claude.ai sees KZ, ya.ru 0.06 s; 50 MB via VPN 103 Mbps, 20 MB direct 142 Mbps (measured before the binding fix, direct path).
 IPv6: after the router reboot LAN devices no longer get global IPv6; IPv6 attempts are captured by XKeen. Personal Mac unaffected.
 
+## VDSina Amsterdam (2026-09-28): blocked from home
+
+146.103.101.8 (AS216071, geolocated Amsterdam NL). SSH port open from Finland (27 ms), Israel, Moldova, Turkey, Iran and one
+Russian check-host node; timed out from two other Russian nodes, from the router's direct MGTS path (no ping, no banner) and via
+Almaty (which transits Moscow). Not installed. `tests/reach.sh` added so every candidate is checked from the home line first.
+
 ## Decision
 
 - EU node: 
