@@ -30,7 +30,7 @@ http://{{ vpn_domain }} {
 		reverse_proxy 127.0.0.1:{{ xhttp_internal_port }} {
 			flush_interval -1
 			transport http {
-				versions h1 h2c
+				versions 1.1 h2c
 			}
 		}
 	}
