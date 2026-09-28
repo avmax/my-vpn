@@ -120,6 +120,17 @@ IPv6: after the router reboot LAN devices no longer get global IPv6; IPv6 attemp
 Russian check-host node; timed out from two other Russian nodes, from the router's direct MGTS path (no ping, no banner) and via
 Almaty (which transits Moscow). Not installed. `tests/reach.sh` added so every candidate is checked from the home line first.
 
+## VDSina Amsterdam, second address (2026-09-28): blocked from home, deployed but unusable
+
+5.35.33.93 (AS216071, geolocated NL everywhere, Cloudflare NL, geofeed published). From abroad: full stack deployed via SSH over
+the Amnezia tunnel (Frankfurt exit); cover site vpnvdsina.avmax.me 200 with a valid certificate. Service checks from the server:
+ChatGPT/Gemini/Spotify/Google Play NL; Claude "Banned" by UnlockTests (same Cloudflare challenge that passes in a browser);
+Netflix inconclusive (UnlockTests NO, title pages 200 at /nl-en/); route clean (one hop registered in Pskov but 11 ms from AMS).
+**From MGTS (router, direct):** TCP 443 does not connect, port 80 connects then freezes, SSH freezes once the client banner is
+sent (silent TCP to 22 gets the server banner); a temporary Xray client on the router stalls at "dialing TCP to 5.35.33.93:443"
+while the identical test to Almaty works (exit in 0.65 s). Verdict: VDSina's network is filtered on MGTS; a new IP did not help.
+Lesson: the decisive pre-rent check is TLS/443 from the home line, not SSH or ping.
+
 ## Decision
 
 - EU node: 

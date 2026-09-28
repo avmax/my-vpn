@@ -39,7 +39,7 @@ provider's SSH-key field. The server is only kept if it passes 1.3.
 
 | Provider | Location | Notes |
 |---|---|---|
-| VDSina | Amsterdam | **failed 2026-09-28:** its address was unreachable from MGTS (blocked on part of Russian networks) |
+| VDSina | Amsterdam | **failed 2026-09-28:** two addresses, both filtered on MGTS (443 never connects); a new IP doesn't help |
 | UpCloud | Helsinki | Finnish, no Russian network; foreign card needed |
 | HostKey | Helsinki, Amsterdam | full speed from home, but its terms exclude Russian residents |
 | Avoid | — | Hetzner, Vultr, Linode, Scaleway, DigitalOcean, Contabo (blocked or throttled); Aeza, PQ.Hosting (sanctioned); Timeweb (routes through Russia) |
