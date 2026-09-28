@@ -305,7 +305,7 @@ def main():
         return 1
     hosts, msk_ip = inventory_hosts(load_yaml(inv_path))
     OWN_SERVERS[:] = sorted({h["ansible_host"] for h in hosts.values()} | ({msk_ip} if msk_ip else set()))
-    exits = {n: (h["ansible_host"], {**v, **h, "vpn_domain": h.get("reality_server_name", v["vpn_domain"])})
+    exits = {n: (h["ansible_host"], {**v, **h, "vpn_domain": h.get("reality_server_name", h.get("vpn_domain", v["vpn_domain"]))})
              for n, h in hosts.items()}
     if not exits:
         print("no exit nodes in inventory (eu / standby / eu_candidates)", file=sys.stderr)
