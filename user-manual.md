@@ -157,6 +157,10 @@ Russian sites go direct, the rest via the exit.
 2. **Internet → DNS:** enable DNS-over-HTTPS (dns.google, cloudflare-dns.com).
 3. **System → Access:** move the web admin off port 443.
 4. **Internet → ISP connection:** IPv6 off.
+5. **Network accelerator off.** It takes over long UDP streams and skips XKeen, so call audio dies every few minutes:
+   ```bash
+   ssh root@192.168.1.1 'ndmc -c "no ppe software"; ndmc -c "no ppe hardware"; ndmc -c "system configuration save"'
+   ```
 
 ### 5.2 USB stick (Entware)
 
@@ -292,6 +296,7 @@ Then run `gen.py`, publish subscriptions (section 2), and copy the router files 
 | Symptom | Fix |
 |---|---|
 | Home internet is broken | `ssh root@192.168.1.1 vpn-mode off`, then rollback (5.6) |
+| In calls, others stop hearing you every ~5 min | The router's accelerator is back on. Turn it off (5.1, step 5) |
 | Claude on this Mac stops after a VPN change | Shadowrocket off, Amnezia on, then investigate |
 | Shadowrocket says connected, but nothing loads | Server Xray is newer than 26.7.28. Keep `xray_version: 26.7.28` |
 | Instagram fails now and then | The exit routes through Russia (Almaty). Use `hostung-de` |

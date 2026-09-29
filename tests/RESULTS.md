@@ -152,7 +152,13 @@ Complaint: in Zoom calls, every ~5 min others stop hearing avmax for ~1 min (dow
 (UDP 8801): upload never stopped (worst second 11 packets, normal 30–110), no stall logged. A synthetic call (one UDP flow of
 STUN requests to Google, 20/s) for 16 min: 0.3% loss, no gap over 1 s, flow never re-created. The same flow plus a steady
 2 Mbit/s upload for 10 min: 0.2% loss, no gaps, 11 × 15 MB uploads all at full rate, none stalled. Verdict: the tunnel is
-not dropping upload; earlier freezes were on Almaty (Moscow transit) or outside the network (e.g. Bluetooth mic).
+not dropping upload. **Corrected the same day:** avmax did hear the freezes during that call, and in other apps too. A heavier
+call-like stream (one UDP flow, 37 packets/s of ~150 B) through the router froze after 50–150 s: from then on only one packet
+per ~16 s reached XKeen. The tunnel's TCP connection to the server stayed healthy (router send queue 0, nothing unacked on the
+server), while the router's conntrack kept counting the Mac's packets. Cause: Keenetic PPE (software + hardware acceleration)
+takes over established UDP flows and skips the TPROXY rule. TCP goes through REDIRECT (NAT), which survives acceleration, so
+only UDP broke. After `no ppe software` + `no ppe hardware`: the same stream ran 6 min with 0.3% loss and no gaps. Speed barely
+changed (direct 99–150 vs 117–135 Mbit/s, VPN 82 vs 92, evening noise), and router CPU stayed 86% idle during a download.
 
 ## Decision
 
