@@ -145,6 +145,15 @@ Added to subscriptions next to Almaty. **Router switched to it the same day** (g
 `/opt/etc/xray/04_outbounds.prev.json`); avmax confirmed on the iPhone over home Wi-Fi: working. `tests/router-tunnel.sh`
 added for this home-line tunnel check (109 Mbit/s in the evening run).
 
+## Zoom stability via router → hostung-de (2026-09-29)
+
+Complaint: in Zoom calls, every ~5 min others stop hearing avmax for ~1 min (downlink fine). Measured on this Mac at home
+(Shadowrocket off, XKeen → hostung-de): a real Zoom call recorded on the server 15:48–16:07, per second, to/from Zoom media
+(UDP 8801): upload never stopped (worst second 11 packets, normal 30–110), no stall logged. A synthetic call (one UDP flow of
+STUN requests to Google, 20/s) for 16 min: 0.3% loss, no gap over 1 s, flow never re-created. The same flow plus a steady
+2 Mbit/s upload for 10 min: 0.2% loss, no gaps, 11 × 15 MB uploads all at full rate, none stalled. Verdict: the tunnel is
+not dropping upload; earlier freezes were on Almaty (Moscow transit) or outside the network (e.g. Bluetooth mic).
+
 ## Decision
 
 - EU node: 
