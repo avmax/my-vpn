@@ -1,24 +1,32 @@
-# Copy to inventory/hosts.yml (gitignored? no: keep it, IPs are not secrets) and fill in.
-# Groups:
-#   eu_candidates  - Phase 1 shoot-out servers (same stack on all of them)
-#   eu             - the winner (production foreign exit)
-#   standby        - optional warm spare in a different AS
-#   msk            - Moscow exit node (Phase 4)
+# Copy to inventory/hosts.yml (gitignored) and fill in.
+#   eu             exits in use; the FIRST one is the router's exit
+#   eu_candidates  exits being tested (ready: false keeps them out of subscriptions)
+#   no_deploy      shared hosts: site.yml never touches them (xray-only.yml / sub-shared.yml only)
+#   msk            Moscow node (later)
 all:
   vars:
     ansible_user: root
     ansible_ssh_private_key_file: ~/.ssh/id_ed25519
   children:
+    eu:
+      hosts:
+        hostung-de:
+          ansible_host: 203.0.113.10
+          vpn_domain: vpnhostung.avmax.me   # A record at GoDaddy -> ansible_host
     eu_candidates:
       hosts:
-        hostkey-hel:
-          ansible_host: 1.2.3.4
-          site_role: eu
-        timeweb-ams:
-          ansible_host: 5.6.7.8
-          site_role: eu
-    eu:
-      hosts: {}
+        new-server:
+          ansible_host: 203.0.113.20
+          vpn_domain: vpnnew.avmax.me
+          ready: false
+        timeweb-almaty:                     # shared production box: Xray on a spare port, neutral Reality target
+          ansible_host: 198.51.100.5
+          xray_reality_port: 8443
+          reality_target: "kolesa.kz:443"
+          reality_server_name: kolesa.kz
+    no_deploy:
+      hosts:
+        timeweb-almaty: {}
     standby:
       hosts: {}
     msk:

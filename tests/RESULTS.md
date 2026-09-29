@@ -141,7 +141,9 @@ router 3/3 in 0.15 s; a temporary Xray Reality client on the router exits in Aug
 in 3.0 s (~280 Mbit/s). Service checks from the server: ChatGPT/Gemini/Copilot/Perplexity/Prime Video/TikTok DE, YouTube GL=DE,
 Google search 200 (no captcha), Drive 302, api.anthropic.com 401; claude.ai and chatgpt.com give curl the Cloudflare challenge
 (same as Almaty, where both work in a browser); Netflix title pages land on /de-en/ (UnlockTests says NO, as for VDSina).
-Added to subscriptions next to Almaty; browser checks on a device pending.
+Added to subscriptions next to Almaty. **Router switched to it the same day** (group `eu`, 04_outbounds.json; Almaty kept as
+`/opt/etc/xray/04_outbounds.prev.json`); avmax confirmed on the iPhone over home Wi-Fi: working. `tests/router-tunnel.sh`
+added for this home-line tunnel check (109 Mbit/s in the evening run).
 
 ## Decision
 

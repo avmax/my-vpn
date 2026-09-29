@@ -1,51 +1,61 @@
 # avmax personal VPN
 
-A self-hosted split-tunnel VPN for a Moscow household. Foreign traffic leaves through your own server abroad, disguised
-from Roskomnadzor's DPI as ordinary HTTPS (VLESS + Reality); Russian sites keep seeing your Russian address. At home the
-Keenetic router covers every device; away from home the MacBook and iPhone switch on by themselves.
+Russian sites go direct, everything else goes through our server abroad over VLESS + Reality, which looks like ordinary HTTPS to DPI.
+At home the Keenetic router covers every device. Away from home, the MacBook and iPhone use Shadowrocket.
 
-- **[user-manual.md](user-manual.md):** setup of the cloud server, MacBook, iPhone and router, plus everyday use and troubleshooting.
-- **[architecture.md](architecture.md):** how the pieces fit, protocols, routing rules, constraints and why.
-- **[tests/RESULTS.md](tests/RESULTS.md):** every measurement the decisions rest on.
+- [user-manual.md](user-manual.md): install and daily use
+- [architecture.md](architecture.md): how it works and why
+- [tests/RESULTS.md](tests/RESULTS.md): measurements
 
-## Status (2026-09-27)
+## Status (2026-09-29)
 
-| Step | State |
+| Part | State |
 |---|---|
-| Network recon (home MGTS, Tinkoff mobile) | done |
-| Exit server | `timeweb-almaty` (Timeweb, Almaty) running as a temporary exit on port 8443; routes through Moscow, so an EU server comes next |
-| Subscriptions | `vpn.avmax.me` live: devices refresh servers and rules by themselves |
-| MacBook | done: Shadowrocket, subscribed to `vpn.avmax.me`, Amnezia retired |
-| iPhone | done: Shadowrocket, subscribed to `vpn.avmax.me` |
-| Keenetic router (KN-1012, KeeneticOS 5.1.6) | XKeen running; test Mac proxied through policy `xkeen`; whole home next |
-| EU exit server (VDSina Amsterdam or UpCloud Helsinki) | after the router |
-| Moscow node for travelling | later |
+| Exit | `hostung-de` 213.209.135.6, hostung.net (Cherry Servers), Germany. The router uses it; Mac and iPhone can pick it |
+| Backup exit | `timeweb-almaty` 92.118.115.34:8443. Routes via Moscow, so Instagram is flaky |
+| Subscriptions | `vpn.avmax.me`, served from Almaty; devices refresh servers and rules themselves |
+| MacBook, iPhone | Shadowrocket, subscribed |
+| Router | XKeen, policy `xkeen`, exit `hostung-de` |
+| Moscow node (travel) | not built |
+
+## Router VPN on/off
+
+```bash
+ssh root@192.168.1.1 vpn-mode off       # everything direct: Russian sites work, blocked ones don't
+ssh root@192.168.1.1 vpn-mode on        # Russian direct, the rest via VPN
+ssh root@192.168.1.1 vpn-mode status
+```
+
+Without a terminal: `http://192.168.1.1` → **Internet → Connection priorities → Policy bindings**, then move the devices
+from `xkeen` back to **Default policy**. Last resort: unplug the router's USB stick.
+
+## Commands
+
+```bash
+.venv/bin/python clients/gen.py                                    # regenerate all client files after any change
+cd ansible && ../.venv/bin/ansible-playbook sub-shared.yml -l timeweb-almaty && cd ..   # publish subscriptions
+cd ansible && ../.venv/bin/ansible-playbook site.yml -l <server> && cd ..               # deploy or update an exit
+tests/reach.sh <ip>                     # new server: reachable from the home line? (before installing)
+tests/router-tunnel.sh <server>         # tunnel from the home line: exit country, sites, speed
+UT=0 tests/availability.sh <server>     # services as seen from the server
+tests/leak-check.sh                     # what Russian and foreign sites see from this Mac
+```
 
 ## Layout
 
 ```
-ansible/          site.yml (dedicated exit), xray-only.yml + sub-shared.yml (shared hosts), group_vars
-inventory/        hosts.yml (gitignored; copy from hosts.example.yml); group no_deploy protects shared hosts from site.yml
-secrets/          secrets.yml from scripts/init-secrets.py (gitignored; back it up)
-clients/gen.py    writes clients/out/ (gitignored): server links + QR codes, avmax-split.conf, subscriptions, XKeen and AWG files
-rules/            custom.json (your overrides), expand.py (grow a list from one domain)
-router/           make-usb.sh (Entware stick), vpn-mode.sh (runs on the router), keenetic-policy.sh (per-device policies)
-tests/            recon, matrix (tunnel), availability (from the server), leak-check; remote.sh runs them on the test Mac
+ansible/     site.yml (own exit), xray-only.yml + sub-shared.yml (shared host), group_vars/all/main.yml
+inventory/   hosts.yml (gitignored; see hosts.example.yml)
+secrets/     secrets.yml (gitignored; back it up)
+clients/     gen.py → clients/out/ (gitignored): subscriptions, QR codes, rules, router files
+rules/       custom.json (your overrides), expand.py (one domain → all its domains)
+router/      vpn-mode.sh (on/off switch on the router), make-usb.sh (Entware stick), keenetic-policy.sh
+tests/       reach, router-tunnel, availability, leak-check, matrix/remote (test Mac), RESULTS.md
 ```
 
-## Everyday commands
+## Don't break
 
-```bash
-.venv/bin/python clients/gen.py                                   # regenerate every client file after any change
-cd ansible && ../.venv/bin/ansible-playbook site.yml -l <server>  # deploy or update a dedicated exit
-UT=0 tests/availability.sh <server>                               # route, geolocation and service checks from the server
-tests/remote.sh matrix <server> home quick                        # tunnel test from the test Mac
-tests/leak-check.sh                                               # what Russian and foreign sites see from this device
-```
-
-## Safety notes
-
-- `timeweb-almaty` is also the production host of here4you.space and cognitiveos.app. It only ever gets `xray-only.yml`;
-  its membership in `no_deploy` keeps `site.yml` off it. Check with `ansible-playbook site.yml --list-hosts` after inventory edits.
-- Keep the server on Xray **26.7.28**: Shadowrocket 2.2.92 cannot connect to 26.9.8 or newer.
-- Server links, QR codes and `secrets/` are logins. Share them only between your own devices.
+- **Almaty is production** for here4you.space and cognitiveos.app. Only `xray-only.yml` and `sub-shared.yml` may touch it.
+  Group `no_deploy` keeps `site.yml` off it. After editing the inventory, run `ansible-playbook site.yml --list-hosts`.
+- **Xray stays at 26.7.28.** Shadowrocket 2.2.92 can't connect to 26.9.8 or newer.
+- **Server links, QR codes and `secrets/` are logins.** Keep them on your own devices.

@@ -1,375 +1,301 @@
-# User manual
+# Install & use manual
 
-Setup and everyday use of the avmax personal VPN. How it works and why: [architecture.md](architecture.md).
-Measurements: [tests/RESULTS.md](tests/RESULTS.md).
+Run commands from the repo root on this Mac. Why things are this way: [architecture.md](architecture.md).
 
-| Section | Status (2026-09-27) |
-|---|---|
-| [0. Control Mac, one-time](#0-control-mac-one-time) | done |
-| [1. Cloud server](#1-cloud-server) | `timeweb-almaty` running (temporary), publishing subscriptions on `vpn.avmax.me`; EU server next |
-| [2. MacBook](#2-macbook) | done, subscribed to `vpn.avmax.me` |
-| [3. iPhone](#3-iphone) | done, subscribed to `vpn.avmax.me` |
-| [4. Keenetic router](#4-keenetic-router) | XKeen running; test Mac proxied via policy `xkeen`; whole home next |
-| [5. Everyday use](#5-everyday-use) | |
-| [6. Troubleshooting](#6-troubleshooting) | |
-
-All commands run from the repository root on the control Mac unless stated otherwise.
+1. [Control Mac (once)](#1-control-mac-once)
+2. [Exit server](#2-exit-server)
+3. [MacBook](#3-macbook)
+4. [iPhone](#4-iphone)
+5. [Keenetic router](#5-keenetic-router)
+6. [Daily use](#6-daily-use)
+7. [Troubleshooting](#7-troubleshooting)
 
 ---
 
-## 0. Control Mac, one-time
+## 1. Control Mac (once)
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install ansible pyyaml cryptography "qrcode[pil]" anthropic
-.venv/bin/python scripts/init-secrets.py          # creates secrets/secrets.yml once; back it up
+.venv/bin/python scripts/init-secrets.py          # secrets/secrets.yml; back it up
 cp inventory/hosts.example.yml inventory/hosts.yml
-cp tests/remote.env.example tests/remote.env      # the test Mac: host, user, folder
 ```
-
-`ansible/group_vars/all/main.yml` sets `vpn_domain: vpn.avmax.me`, the name devices subscribe to (see 1.6).
 
 ---
 
-## 1. Cloud server
+## 2. Exit server
 
-### 1.1 Choose and rent
+### Where to rent (tested from the home MGTS line)
 
-Rent **2 vCPU / 2 GB, Ubuntu 24.04**, hourly or daily billing, and paste this Mac's key (`~/.ssh/id_ed25519.pub`) into the
-provider's SSH-key field. The server is only kept if it passes 1.3.
+| Provider | Result |
+|---|---|
+| **hostung.net**, VPS S-1, Germany (Cherry Servers) | **in use.** $3.19/month, 100–280 Mbit/s |
+| HostKey (Helsinki, Amsterdam) | fast, but its terms exclude Russian residents |
+| VDSina (Amsterdam) | blocked: TLS on 443 never connects |
+| Avoid | Hetzner, Vultr, Linode, Scaleway, Contabo (blocked or throttled); Aeza, PQ.Hosting (sanctioned); Timeweb (routes via Russia) |
 
-| Provider | Location | Notes |
-|---|---|---|
-| VDSina | Amsterdam | **failed 2026-09-28:** two addresses, both filtered on MGTS (443 never connects); a new IP doesn't help |
-| UpCloud | Helsinki | Finnish, no Russian network; foreign card needed |
-| HostKey | Helsinki, Amsterdam | full speed from home, but its terms exclude Russian residents |
-| Avoid | — | Hetzner, Vultr, Linode, Scaleway, DigitalOcean, Contabo (blocked or throttled); Aeza, PQ.Hosting (sanctioned); Timeweb (routes through Russia) |
+### New server: steps
 
-### 1.2 Add it to the inventory
+1. **Rent:** Ubuntu 24.04, monthly billing, cheapest plan (1 vCPU / 1 GB is enough).
+2. **Check from home before anything else:**
+   ```bash
+   tests/reach.sh <ip>
+   ```
+   Keep it only if ping works, both `tcp 22` lines show `SSH-2.0-…`, and `tcp 443` shows `rc=7` (`28` means blocked).
+3. **Add your SSH key.** You type the root password from the provider's email:
+   ```bash
+   ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<ip>
+   ```
+4. **DNS:** GoDaddy → avmax.me → DNS → add record **A**, name `vpn<name>`, value `<ip>`, TTL 600.
+5. **Inventory** (`inventory/hosts.yml`, under `eu_candidates`):
+   ```yaml
+           new-server:
+             ansible_host: <ip>
+             vpn_domain: vpn<name>.avmax.me
+             ready: false
+   ```
+6. **Install** (firewall, SSH hardening, website + certificate, Xray on 443, AmneziaWG):
+   ```bash
+   cd ansible && ../.venv/bin/ansible-playbook site.yml -l new-server && cd ..
+   ```
+   If a brand-new server fails with `Could not get lock /var/lib/dpkg`, Ubuntu's first-boot updates are running. Wait 15 minutes and run it again.
+7. **Test from home:**
+   ```bash
+   .venv/bin/python clients/gen.py
+   tests/router-tunnel.sh new-server       # exit country, Instagram/YouTube/Claude, 100 MB speed
+   UT=0 tests/availability.sh new-server   # services as the server sees them
+   ```
+   Pass: the exit shows the server's country, speed is above 50 Mbit/s, and there's no `RUSSIAN HOP`. YouTube should show the
+   server's country, and Netflix should land on `/xx-en/` (not 403). Curl gets a 403 "challenge" from claude.ai and chatgpt.com;
+   that's normal, so check those in a browser.
+8. **Give it to devices:** delete `ready: false`, run `clients/gen.py`, and publish (next section). Then pick it in Shadowrocket.
+9. **Give it to the router:** see [5.6](#56-change-the-routers-exit-server).
 
-In `inventory/hosts.yml`, under `eu_candidates` (while testing) or `eu` (when kept):
+### Publish subscriptions (vpn.avmax.me)
 
-```yaml
-        vdsina-ams:
-          ansible_host: 203.0.113.10
-```
-
-A host that already serves other things (like `timeweb-almaty`) also goes into group `no_deploy`, with a spare port and a
-neutral Reality target, so `site.yml` can never touch it:
-
-```yaml
-        timeweb-almaty:
-          ansible_host: 92.118.115.34
-          xray_reality_port: 8443
-          reality_target: "kolesa.kz:443"
-          reality_server_name: kolesa.kz
-```
-
-### 1.3 Check it before installing anything
-
-First, can your home line reach it at all? (VDSina Amsterdam 146.103.101.8 answered from Finland but not from MGTS or two of
-three Russian test points.)
-
-```bash
-tests/reach.sh 203.0.113.10          # router-direct ping + SSH banner from home, and check-host.net nodes in Russia and Finland
-```
-
-Only if the home line reaches it, continue:
-
-```bash
-UT=0 tests/availability.sh vdsina-ams      # UT=1 also installs and runs the UnlockTests suite on the server
-```
-
-Keep the server only if all of these hold:
-- the **path to Europe** shows no line marked `RUSSIAN HOP`;
-- geolocation and Cloudflare (`loc=`) show the server's real country, not RU;
-- Netflix title 70143836 returns 200 (full catalog), YouTube Premium region is the server's country;
-- chatgpt.com and claude.ai: a `cf-mitigated: challenge` for curl is normal; a region redirect is not.
-
-### 1.4 Install
-
-**Dedicated server** (the normal case). Point the DNS A record of `vpn_domain` at the server first, then:
+Devices pull their server list and rules from `https://vpn.avmax.me/s/<token>/…`. The exact URLs are in
+`clients/out/SUBSCRIPTION-URLS.txt`. Today they're served from Almaty (DNS `vpn` → 92.118.115.34).
 
 ```bash
-cd ansible && ../.venv/bin/ansible-playbook site.yml -l vdsina-ams && cd ..
+.venv/bin/python clients/gen.py
+cd ansible && ../.venv/bin/ansible-playbook sub-shared.yml -l timeweb-almaty && cd ..
 ```
 
-This installs hardening, AmneziaWG, the Caddy website with the subscription files, and Xray on 443.
+Run this after any change to servers or rules. Devices pick it up on their next refresh.
 
-**Shared host** (a server that runs other things):
+### Shared host (Almaty): Xray only
 
 ```bash
 cd ansible && ../.venv/bin/ansible-playbook xray-only.yml -l timeweb-almaty && cd ..
-ssh root@92.118.115.34 ufw allow 8443/tcp
 ```
 
-Only Xray is installed; the host's web server, SSH and firewall rules stay as they were.
+Keep it in group `no_deploy`, with port 8443 and Reality target `kolesa.kz`. Its web server and firewall stay untouched.
 
-### 1.5 Generate client files and test the tunnel
-
-```bash
-.venv/bin/python clients/gen.py                      # writes clients/out/ (links, QR codes, rules, router files)
-tests/remote.sh matrix vdsina-ams home quick         # tunnel test on the test Mac, home Wi-Fi (~10 min)
-tests/remote.sh matrix vdsina-ams mobile quick --detached --wait
-```
-
-For the mobile run: start it while the test Mac is on home Wi-Fi, then switch the test Mac to the iPhone hotspot within
-15 minutes, wait ~15 minutes, switch back and run `tests/remote.sh collect`. Record the results in `tests/RESULTS.md`.
-
-### 1.6 Publish subscriptions on vpn.avmax.me
-
-Devices subscribe to `https://vpn.avmax.me/s/<token>/<device>` (their server list) and load the rules from
-`https://vpn.avmax.me/s/<token>/avmax-split.conf`; the rules file carries its own `update-url`, so Shadowrocket refreshes both.
-The exact addresses are in `clients/out/SUBSCRIPTION-URLS.txt`. Anyone without the token gets 404.
-
-- DNS: an **A record `vpn` → the publishing server** at GoDaddy (avmax.me → DNS). Today: `92.118.115.34`.
-- Dedicated exit: `site.yml` publishes the files with its own Caddy.
-- Shared host (today): one validated `import` line and one site file in its Caddy; nothing else there changes:
-  ```bash
-  cd ansible && ../.venv/bin/ansible-playbook sub-shared.yml -l timeweb-almaty && cd ..
-  ```
-- After any change (rules, servers): `.venv/bin/python clients/gen.py`, then re-run the same playbook. Devices pick it up on their
-  next refresh (Shadowrocket: pull down on the server list, or wait).
-
-### 1.7 Switch devices to a new server
-
-Deploy the new server, add it to the inventory (move the old one out), `clients/gen.py`, publish (1.6). Devices get the new server
-through their subscription. When the publishing server itself changes, move the `vpn` DNS record; the addresses on the devices stay
-the same. Router: copy the regenerated `04_outbounds.json` (section 4.4) and run `vpn-mode on`.
-
-### 1.8 Remove Xray from a shared host
+To remove it completely (and move the `vpn` DNS record to wherever subscriptions go next):
 
 ```bash
 ssh root@92.118.115.34 'systemctl disable --now xray xray-geo-update.timer; rm -rf /usr/local/bin/xray /usr/local/etc/xray /usr/local/share/xray /etc/systemd/system/xray*; ufw delete allow 8443/tcp'
-```
-
-And the subscription site (then move the `vpn` DNS record to wherever subscriptions are published next):
-
-```bash
 ssh root@92.118.115.34 'sed -i "/import \/etc\/caddy\/avmax-vpn.caddy/d" /etc/caddy/Caddyfile && rm -rf /etc/caddy/avmax-vpn.caddy /var/www/avmax-vpn && systemctl reload caddy'
 ```
 
-### 1.9 Moscow node (later)
+### Moscow node (later, for travelling)
 
-Rent the cheapest Moscow VPS, add it under `msk` in the inventory, then deploy it and the link from the exit:
+Put a cheap Moscow VPS under `msk` in the inventory, then:
 
 ```bash
 cd ansible && ../.venv/bin/ansible-playbook site.yml -l msk && ../.venv/bin/ansible-playbook site.yml -l eu -e msk_link_enabled=true && cd ..
 .venv/bin/python clients/gen.py
 ```
 
-Devices then use the `avmax-<server>-abroad` entry when travelling; Russian sites see the Moscow address.
+---
+
+## 3. MacBook
+
+1. Install **Shadowrocket** from the Mac App Store (non-Russian Apple ID).
+2. **Servers:** with Shadowrocket open, run:
+   ```bash
+   u=$(awk '/^mac:/ {print $2}' clients/out/SUBSCRIPTION-URLS.txt)
+   open "shadowrocket://add/sub://$(printf %s "$u" | base64 | tr '+/' '-_' | tr -d '=\n')?remark=avmax"
+   ```
+   Group **avmax** appears. (Manual way: **+ → Type: Subscribe → URL**. The **Import…** button won't take links.)
+3. **Rules:** **Config** tab → **+** → paste the `avmax-split.conf` URL from `SUBSCRIPTION-URLS.txt` → **Use Config**.
+   Then on **Home**, set **Global Routing → Config**.
+4. Turn off any other VPN. Select **avmax-hostung-de** and turn the switch on.
+5. **Settings → On Demand:** on, with *connect* on Wi-Fi and Ethernet. At home it's fine to leave it on: the router sends the
+   tunnel straight out.
+6. **Check:** `tests/leak-check.sh`. The foreign view should show the exit; ip.beget.ru should show your home address.
+
+To swap the rules file, switch to **default.conf** first. Shadowrocket won't delete the config in use.
 
 ---
 
-## 2. MacBook
+## 4. iPhone
 
-Client: **Shadowrocket** from the Mac App Store (non-Russian Apple ID, $2.99, shared with the iPhone purchase).
+1. Install **Shadowrocket** from the App Store (non-Russian Apple ID).
+2. On the Mac, open the two QR codes and scan each with Shadowrocket's scan icon (top left):
+   ```bash
+   open clients/out/iphone/shadowrocket-1-subscribe.png     # servers
+   open clients/out/iphone/shadowrocket-2-rules.png         # rules
+   ```
+   The QR codes contain your login. Close them afterwards and don't share them.
+3. **Config → avmax-split.conf → Use Config**, then **Home → Global Routing → Config**.
+4. Select **avmax-hostung-de** and turn the switch on.
+5. **Settings → On Demand:** *connect* on Cellular and Wi-Fi.
+6. **Check** on mobile data: ip.beget.ru should show your mobile address, and ipinfo.io the exit.
 
-### 2.1 Add the subscription (servers)
-
-With Shadowrocket's window open:
-
-```bash
-u=$(awk '/^mac:/ {print $2}' clients/out/SUBSCRIPTION-URLS.txt)
-open "shadowrocket://add/sub://$(printf %s "$u" | base64 | tr '+/' '-_' | tr -d '=\n')?remark=avmax"
-```
-
-A group **avmax** appears with the servers. Alternatively **+ → Type: Subscribe → URL** (the `mac:` line). Shadowrocket's **Import…**
-button does *not* accept link files or Clash YAML. Without a domain, `open "vless://…"` adds a single server silently.
-
-### 2.2 Add the rules (self-updating)
-
-**Config** tab → **+** → paste `https://vpn.avmax.me/s/<token>/avmax-split.conf` → download → **Use Config**; on the Home tab
-**Global Routing → Config**. Check with **Edit Plain Text**: the file starts with `update-url = …`.
-Shadowrocket won't delete the config that's in use: switch to **default.conf** first when replacing it.
-
-### 2.3 Connect
-
-1. Disconnect any other VPN (Amnezia, WireGuard, Outline).
-2. Select `avmax-timeweb-almaty`, turn on the main switch, allow the VPN configuration (password or Touch ID, first time only).
-3. **Settings → On Demand:** on, rule *connect* on Wi-Fi and Ethernet, so it reconnects after sleep.
-   After the router is set up (section 4), add *disconnect* on Wi-Fi SSID `Keenetic-0650`, because the router covers home.
-
-### 2.4 Check
-
-```bash
-tests/leak-check.sh
-```
-
-Expected: *foreign view* = the exit server, *russian view (ip.beget.ru)* = your home or mobile address, IPv6 empty or the exit.
-Then open chatgpt.com, claude.ai, youtube.com, and gosuslugi.ru in the browser.
+**Update servers:** swipe the **avmax** group left → **Update**.
 
 ---
 
-## 3. iPhone
+## 5. Keenetic router
 
-Client: **Shadowrocket** from the App Store with the non-Russian Apple ID.
+Keenetic Giga KN-1012, KeeneticOS 5.1.6, admin at `http://192.168.1.1`. Devices in policy `xkeen` get the VPN with no app:
+Russian sites go direct, the rest via the exit.
 
-### 3.1 Add the subscription and the rules
+### 5.1 Web admin
 
-`clients/gen.py` writes two QR codes per device. Show them on the Mac and scan each with Shadowrocket's scan icon (top left):
+1. **System → Components:** add **OPKG** and **Kernel modules for Netfilter**. The router reboots.
+2. **Internet → DNS:** enable DNS-over-HTTPS (dns.google, cloudflare-dns.com).
+3. **System → Access:** move the web admin off port 443.
+4. **Internet → ISP connection:** IPv6 off.
 
-```bash
-open clients/out/iphone/shadowrocket-1-subscribe.png     # adds the subscription (group "avmax")
-open clients/out/iphone/shadowrocket-2-rules.png         # adds the self-updating avmax-split.conf
-```
+### 5.2 USB stick (Entware)
 
-Then select the server inside the **avmax** group, and **Config → avmax-split.conf → Use Config**, **Global Routing → Config**.
-The codes carry the subscription token: close them afterwards and don't photograph or share them.
-Fallback without a domain: `open clients/out/iphone/reality-<server>.png` (one server) and AirDrop `clients/out/sub/avmax-split.conf`.
-
-### 3.2 Connect and set On Demand
-
-Turn on the switch and allow the VPN configuration. **Settings → On Demand:** connect on **Cellular** and on **Wi-Fi**.
-After the router is set up, add *disconnect* on SSID `Keenetic-0650`.
-
-### 3.3 Check
-
-On cellular, open `https://ip.beget.ru` (should show your mobile address) and `https://ifconfig.co` (should show the exit
-server). Then open ChatGPT, Claude and YouTube.
-
----
-
-## 4. Keenetic router
-
-Every device on the home Wi-Fi uses the VPN without apps: Russian sites direct, the rest through the exit.
-This router: **Keenetic Giga KN-1012** (ARM64), KeeneticOS **5.1.6**, admin at `http://192.168.1.1`.
-
-### 4.1 In the web admin
-
-1. **System → Components:** add **OPKG** ("Open Package support"). The router reboots.
-2. **Internet → DNS:** enable DNS-over-TLS or DNS-over-HTTPS profiles (XKeen requires encrypted DNS on the router).
-3. **System → Access:** move the web admin off port 443 (XKeen needs 443 free).
-4. **Internet → ISP connection → IPv6 configuration:** set it to off (MGTS hands out IPv6; it would bypass the tunnel).
-   On KeeneticOS 5 this may not stop the router handing out IPv6 addresses (seen 2026-09-27: devices still got `2a00:…`
-   addresses). XKeen's installer offers its own IPv6 switch for this; use it in 4.4 and check with `curl -6 https://ifconfig.co`.
-
-### 4.2 USB stick with Entware
-
-On the control Mac (erases the stick; refuses anything that isn't an external USB disk; asks for your password once):
+On this Mac. It erases the stick and refuses anything that isn't an external USB disk:
 
 ```bash
 HOMEBREW_NO_AUTO_UPDATE=1 brew install e2fsprogs
-router/make-usb.sh            # lists external disks, e.g. disk4
-router/make-usb.sh disk4      # ext4 "OPKG" with install/EN_aarch64-installer.tar.gz
+router/make-usb.sh            # lists disks, e.g. disk4
+router/make-usb.sh disk4
 ```
 
-Plug it into the router → **Applications → OPKG → Drive:** the `OPKG` stick → **Save**. Watch **Diagnostics → System log**
-until Entware reports it is installed.
+Plug it into the router → **Applications → OPKG → Drive: OPKG → Save**. Wait until **Diagnostics → System log** says
+Entware is installed.
 
-### 4.3 Key-based access
+### 5.3 SSH key
 
-Entware's SSH (dropbear) listens on **port 22** on this router (222 only if Keenetic's own SSH component is installed).
-Once, in your own Terminal (you type the passwords; afterwards logins use the key):
+In your own Terminal (you type the passwords):
 
-1. `ssh root@192.168.1.1`, password `keenetic`, answer `yes` to the fingerprint question.
-2. On the router: `passwd`, set a new root password (keep it in your password manager).
-3. On the router, with the line from the Mac's `~/.ssh/id_ed25519.pub` pasted between the quotes. **This dropbear build reads
-   `/opt/etc/dropbear/authorized_keys`**, not `~/.ssh/authorized_keys` (it silently ignored the latter; `dropbear -D` can override):
+1. `ssh root@192.168.1.1`, password `keenetic`, answer `yes`.
+2. `passwd` sets a new root password. Keep it in your password manager.
+3. Add this Mac's key. It goes in `/opt/etc/dropbear/`, not `~/.ssh/`:
    ```sh
-   echo '<public key line>' >> /opt/etc/dropbear/authorized_keys && chmod 600 /opt/etc/dropbear/authorized_keys
+   echo '<line from ~/.ssh/id_ed25519.pub>' >> /opt/etc/dropbear/authorized_keys && chmod 600 /opt/etc/dropbear/authorized_keys
    ```
-4. `exit`, then check from the Mac: `ssh -o BatchMode=yes root@192.168.1.1 true` (no password prompt = done).
+4. `exit`, then check: `ssh -o BatchMode=yes root@192.168.1.1 true` should succeed with no password prompt.
 
-### 4.4 XKeen and our rules
+### 5.4 XKeen and our files
 
-Router components needed (4.1 plus): **Kernel modules for Netfilter** (XKeen loads `xt_TPROXY.ko`, `xt_socket.ko`).
-
-Install XKeen (the bootstrap installs the `xkeen` command, then starts its interactive setup, so run it in a real terminal):
+Install it in a real terminal, because the setup asks questions:
 
 ```bash
 ssh -t root@192.168.1.1 'opkg update && opkg install curl tar && sh -c "$(curl -fsSL https://raw.githubusercontent.com/jameszeroX/XKeen/main/install.sh)" x -s'
 ```
 
-Answers: core **1** (Xray) → release **9**, then `v26.7.28` → GeoSite **0** and GeoIP **0** (we use runetfreedom's files) →
-exclude Russian IPs **1** → auto-update **1**, daily 05:00 → start on boot **1**. Setup does not start proxying.
+Answers: core **1** (Xray) → release **9** → `v26.7.28` → GeoSite **0** → GeoIP **0** → exclude Russian IPs **1** →
+auto-update **1**, 05:00 → start on boot **1**.
 
-Our configs (from the Mac, after `clients/gen.py`):
+Copy our files. The router has no SFTP, so `scp` needs `-O`:
 
 ```bash
-R=root@192.168.1.1
-scp clients/out/keenetic/xkeen/04_outbounds.json clients/out/keenetic/xkeen/05_routing.json $R:/opt/etc/xray/configs/
-ssh $R mkdir -p /opt/etc/xray/routing && scp clients/out/keenetic/xkeen/routing/*.json $R:/opt/etc/xray/routing/   # never in configs/
-scp router/vpn-mode.sh $R:/opt/bin/vpn-mode
-ssh $R 'chmod +x /opt/bin/vpn-mode && vpn-mode geo && XRAY_LOCATION_ASSET=/opt/etc/xray/dat xray run -test -confdir /opt/etc/xray/configs'
+.venv/bin/python clients/gen.py
+R=root@192.168.1.1; X=clients/out/keenetic/xkeen
+scp -O $X/04_outbounds.json $X/05_routing.json $R:/opt/etc/xray/configs/
+ssh $R mkdir -p /opt/etc/xray/routing && scp -O $X/routing/*.json $R:/opt/etc/xray/routing/     # never into configs/
+scp -O $X/ip_exclude.lst $R:/opt/etc/xkeen/
+scp -O router/vpn-mode.sh $R:/opt/bin/vpn-mode
+ssh $R 'chmod +x /opt/bin/vpn-mode && vpn-mode geo && XRAY_LOCATION_ASSET=/opt/etc/xray/dat xray run -test -confdir /opt/etc/xray/configs && vpn-mode on'
 ```
 
-**Who is proxied.** If a connection policy named `xkeen` exists, XKeen proxies only its members; without it, every home device.
-Roll out in stages: **Internet → Connection policies → Add policy `xkeen`**, tick **Провайдер 1** in it (so its members keep
-internet when XKeen is off), then **Policy Bindings → Default policy → drag devices onto `xkeen`**. Whole home later: make `xkeen`
-the home segment's default policy. Check a binding from the router: `ndmc -c "show running-config" | grep 'host <mac>'` shows
-`policy Policy0`. Then `vpn-mode on`.
+### 5.5 Choose which devices get the VPN
 
-### 4.5 The switch
+XKeen only proxies members of the connection policy `xkeen`:
+
+1. **Internet → Connection priorities → Add policy** `xkeen`, and tick **Провайдер 1** in it.
+2. **Policy bindings:** drag devices from **Default policy** onto `xkeen`.
+3. Whole home: make `xkeen` the default policy of the **Home** segment.
+
+### 5.6 Change the router's exit server
+
+The router uses the **first host in group `eu`** of the inventory. Put the new server there, then:
 
 ```bash
-ssh root@192.168.1.1 vpn-mode on       # Russian direct, foreign via VPN
-ssh root@192.168.1.1 vpn-mode off      # everything direct
+.venv/bin/python clients/gen.py
+R=root@192.168.1.1; X=clients/out/keenetic/xkeen
+ssh $R cp /opt/etc/xray/configs/04_outbounds.json /opt/etc/xray/04_outbounds.prev.json      # backup for rollback
+scp -O $X/04_outbounds.json $X/05_routing.json $R:/opt/etc/xray/configs/ && scp -O $X/ip_exclude.lst $R:/opt/etc/xkeen/
+ssh $R 'XRAY_LOCATION_ASSET=/opt/etc/xray/dat xray run -test -confdir /opt/etc/xray/configs && xkeen -restart'
+ssh $R "netstat -tn | grep -c '<new ip>:443 .*ESTABLISHED'"       # above 0 = home traffic uses it
+```
+
+**Rollback** to the previous server (currently Almaty):
+
+```bash
+ssh root@192.168.1.1 'cp /opt/etc/xray/04_outbounds.prev.json /opt/etc/xray/configs/04_outbounds.json && xkeen -restart'
+```
+
+### 5.7 VPN on/off
+
+```bash
+ssh root@192.168.1.1 vpn-mode off       # everything direct: Russian sites work, blocked ones don't
+ssh root@192.168.1.1 vpn-mode on        # Russian direct, the rest via VPN
 ssh root@192.168.1.1 vpn-mode status
 ```
 
-**One tap:** in the Shortcuts app create "VPN on" / "VPN off" with the action **Run Script Over SSH** (host `192.168.1.1`,
-port `22`, user `root`, script `vpn-mode on` / `vpn-mode off`). Add them to the Home Screen or the menu bar.
+- **Without a terminal:** `http://192.168.1.1` → **Internet → Connection priorities → Policy bindings**, then move the devices
+  from `xkeen` back to **Default policy**.
+- **Last resort:** unplug the USB stick.
+- **One tap:** make a Shortcuts app shortcut with **Run Script Over SSH** (host `192.168.1.1`, port `22`, user `root`,
+  script `vpn-mode off`), and a second one for `on`.
+- **One device always direct:** leave it in **Default policy** (5.5).
 
-**Keep one device direct:** add its LAN IP to `ip_exclude.lst` and copy the file again.
+### 5.8 Fallback if Reality gets blocked
 
-### 4.6 Fallback if Reality stops working
+This only works with our own exit, which runs AmneziaWG (Almaty doesn't).
 
-Only for a dedicated exit (it runs AmneziaWG; `timeweb-almaty` doesn't).
 1. **Internet → Other connections → WireGuard → Load from file:** `clients/out/keenetic/awg-<server>.conf`.
-2. Create policy `awg-fallback` whose only connection is that tunnel; assign no devices.
-3. `ssh root@192.168.1.1 xkeen -pbr codes` → put the number for `awg-fallback` into `ansible/group_vars/all/main.yml`
-   as `xkeen_awg_mark`, run `clients/gen.py`, copy `04_outbounds.json` again.
-4. `vpn-mode via awg` (back: `vpn-mode via reality`).
-
-### 4.7 Check
-
-From a device on the home Wi-Fi with no VPN app, `vpn-mode on`: ip.beget.ru shows the home address, ifconfig.co the exit;
-`curl -6 https://ifconfig.co` fails. `vpn-mode off`: both show the home address.
+2. Create policy `awg-fallback` containing only that tunnel. Assign no devices to it.
+3. Run `ssh root@192.168.1.1 xkeen -pbr codes`. Put the code for `awg-fallback` into `ansible/group_vars/all/main.yml` as
+   `xkeen_awg_mark`, run `gen.py`, and copy `04_outbounds.json` again.
+4. `ssh root@192.168.1.1 vpn-mode via awg`. To go back: `vpn-mode via reality`.
 
 ---
 
-## 5. Everyday use
+## 6. Daily use
 
-### Rules: send a site direct or through the VPN
-
-Edit `rules/custom.json`:
+**Send a site direct or via VPN.** Edit `rules/custom.json`:
 
 ```json
 { "direct": ["example-bank.com", "203.0.113.0/24"], "proxy": ["some-site.ru"], "block": [] }
 ```
 
-Entries: `example.com` (domain and all subdomains), `full:api.example.com` (exact host), `geosite:yandex` (a v2fly category),
-a CIDR. To grow a list from one domain, review the output before applying:
+`example.com` covers it and all subdomains. `full:api.example.com` is one exact host, and `geosite:yandex` is a whole category.
+Then run `gen.py`, publish subscriptions (section 2), and copy the router files (5.4).
+
+**Find all of a company's domains:**
 
 ```bash
-.venv/bin/python rules/expand.py yandex.ru                   # company list + certificate transparency + homepage crawl
-.venv/bin/python rules/expand.py yandex.ru --ai              # also asks Claude (needs an Anthropic API key)
-.venv/bin/python rules/expand.py yandex.ru --apply direct    # append to custom.json
+.venv/bin/python rules/expand.py yandex.ru                  # preview
+.venv/bin/python rules/expand.py yandex.ru --ai             # also ask Claude (needs an Anthropic API key)
+.venv/bin/python rules/expand.py yandex.ru --apply direct   # write to custom.json
 ```
 
-Then `.venv/bin/python clients/gen.py` and publish (1.6): the Mac and iPhone update themselves. Copy the XKeen files to the
-router (4.4), and for the abroad rules redeploy the exit.
+**Switch server on Mac or iPhone:** tap another server in the **avmax** group.
 
-### Travelling abroad
+**VPN off on Mac or iPhone:** turn **On Demand** off first, then the switch. Otherwise it reconnects.
 
-Select `avmax-<server>-abroad` in Shadowrocket (needs the Moscow node, 1.9). Russian sites then see a Moscow address.
-
-### Turning the VPN off
-
-Mac/iPhone: turn off **On Demand** in Shadowrocket, then the switch (with On Demand on, the system switch won't stay off).
-Home: `vpn-mode off`.
+**Abroad:** select `avmax-<server>-abroad`. This needs the Moscow node.
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
-| Symptom | Cause / fix |
+| Symptom | Fix |
 |---|---|
-| This Mac: Claude stops responding after a VPN change | Turn Shadowrocket off, turn Amnezia on, then investigate from the test Mac |
-| Shadowrocket shows connected, nothing loads | Server's Xray is 26.9.8 or newer; Shadowrocket 2.2.92 can't talk to it. Keep `xray_version: 26.7.28` |
-| Instagram (or another Russia-blocked site) fails intermittently | The exit's route passes through Russia (`timeweb-almaty` does). Move to an exit without a Russian hop |
-| `curl https://www.gosuslugi.ru` fails | gosuslugi refuses macOS's command-line curl; check in a browser |
-| A test on the test Mac takes far too long or reports nothing | The test Mac slept (it sleeps after 1 minute). Runs use `caffeinate`, but keep the lid open |
-| Shadowrocket's Import says "isn't in the correct format" | Use `open "vless://…"`, the QR code, or Type **Subscribe** with a URL |
-| Everything slow on mobile | Compare with the direct baseline at the top of the matrix report; if the link itself is slow, the tunnel isn't the cause |
+| Home internet is broken | `ssh root@192.168.1.1 vpn-mode off`, then rollback (5.6) |
+| Claude on this Mac stops after a VPN change | Shadowrocket off, Amnezia on, then investigate |
+| Shadowrocket says connected, but nothing loads | Server Xray is newer than 26.7.28. Keep `xray_version: 26.7.28` |
+| Instagram fails now and then | The exit routes through Russia (Almaty). Use `hostung-de` |
+| New server: `tcp 443 rc=28` in `reach.sh` | Blocked from MGTS. Cancel it; a new IP from the same provider won't help |
+| `scp` to the router fails | Add `-O` |
+| Shadowrocket Import: "not in the correct format" | Use a Subscribe URL, a QR code, or `open "vless://…"` |
+| `curl https://www.gosuslugi.ru` fails | It refuses curl. Check in a browser |
