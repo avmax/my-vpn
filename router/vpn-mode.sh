@@ -10,14 +10,14 @@
 set -e
 C=/opt/etc/xray/configs
 V=/opt/etc/xray/routing
-S=/opt/etc/xkeen/vpn-mode.state
+S=/opt/etc/xkeen/vpn-mode.via
 running() { ps | grep -q '[x]ray run'; }
 case "${1:-status}" in
-  on)  xkeen -start >/dev/null 2>&1 || true; echo on > "$S"; echo "vpn: on (foreign via VPN, Russian direct)";;
-  off) xkeen -stop  >/dev/null 2>&1 || true; echo off > "$S"; echo "vpn: off (everything direct)";;
+  on)  xkeen -start >/dev/null 2>&1 || true; echo "vpn: on (foreign via VPN, Russian direct)";;
+  off) xkeen -stop  >/dev/null 2>&1 || true; echo "vpn: off (everything direct)";;
   via)
     case "${2:-}" in
-      reality|awg) cp "$V/05_routing_via_$2.json" "$C/05_routing.json"; echo "$2" > "$S.via"
+      reality|awg) cp "$V/05_routing_via_$2.json" "$C/05_routing.json"; echo "$2" > "$S"
                    running && xkeen -restart >/dev/null 2>&1; echo "outbound: $2";;
       *) echo "usage: vpn-mode via reality|awg" >&2; exit 1;;
     esac;;
@@ -25,6 +25,6 @@ case "${1:-status}" in
     u=https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download
     for f in geoip.dat geosite.dat; do curl -fsSL --retry 3 -o /opt/etc/xray/dat/$f.new "$u/$f" && mv /opt/etc/xray/dat/$f.new /opt/etc/xray/dat/$f; done
     running && xkeen -restart >/dev/null 2>&1; echo "geo files refreshed";;
-  status) echo "vpn: $(cat "$S" 2>/dev/null || echo unknown), outbound: $(cat "$S.via" 2>/dev/null || echo reality), xray: $(running && echo running || echo stopped)";;
+  status) echo "vpn: $(running && echo on || echo off), outbound: $(cat "$S" 2>/dev/null || echo reality)";;   # on = xray actually running (XKeen starts at boot)
   *) echo "usage: vpn-mode on|off|via reality|awg|geo|status" >&2; exit 1;;
 esac
