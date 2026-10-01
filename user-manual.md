@@ -186,6 +186,10 @@ In your own Terminal (you type the passwords):
    echo '<line from ~/.ssh/id_ed25519.pub>' >> /opt/etc/dropbear/authorized_keys && chmod 600 /opt/etc/dropbear/authorized_keys
    ```
 4. `exit`, then check: `ssh -o BatchMode=yes root@192.168.1.1 true` should succeed with no password prompt.
+5. Keep SSH's PID file in RAM. Otherwise a stale file left on the stick can stop SSH from starting after a reboot:
+   ```bash
+   ssh root@192.168.1.1 'sed -i "s#^PIDFILE=.*#PIDFILE=\"/var/run/dropbear.pid\"#" /opt/etc/config/dropbear.conf'
+   ```
 
 ### 5.4 XKeen and our files
 
@@ -301,6 +305,7 @@ Then run `gen.py`, publish subscriptions (section 2), and copy the router files 
 | Shadowrocket says connected, but nothing loads | Server Xray is newer than 26.7.28. Keep `xray_version: 26.7.28` |
 | Instagram fails now and then | The exit routes through Russia (Almaty). Use `hostung-de` |
 | New server: `tcp 443 rc=28` in `reach.sh` | Blocked from MGTS. Cancel it; a new IP from the same provider won't help |
+| `ssh root@192.168.1.1`: "Connection refused" | SSH didn't start. Unplug the router's USB stick, plug it back in, wait 1 min. Then do 5.3 step 5 |
 | `scp` to the router fails | Add `-O` |
 | Shadowrocket Import: "not in the correct format" | Use a Subscribe URL, a QR code, or `open "vless://…"` |
 | `curl https://www.gosuslugi.ru` fails | It refuses curl. Check in a browser |
