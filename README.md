@@ -18,12 +18,14 @@ At home the Keenetic router covers every device. Away from home, the MacBook and
 | Router | XKeen, policy `xkeen`, exit `hostung-de` |
 | Moscow node (travel) | not built |
 
-## Router VPN on/off
+## Router: VPN on/off, switch server
 
 ```bash
 ssh root@192.168.1.1 vpn-mode off       # everything direct: Russian sites work, blocked ones don't
 ssh root@192.168.1.1 vpn-mode on        # Russian direct, the rest via VPN
 ssh root@192.168.1.1 vpn-mode status
+ssh root@192.168.1.1 vpn-mode servers                 # exit servers; * = in use
+ssh root@192.168.1.1 vpn-mode server timeweb-almaty   # switch the home exit (hostung-de | timeweb-almaty)
 ```
 
 Without a terminal: `http://192.168.1.1` → **Internet → Connection priorities → Policy bindings**, then move the devices

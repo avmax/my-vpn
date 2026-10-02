@@ -10,7 +10,7 @@ Per device (mac, iphone, keenetic):
   <dev>/wg-control-<server>.conf       plain WireGuard control profile (Phase 1 only, test_mode)
 happ/routing-split.json + .deeplink.txt + .png            Happ routing profile (custom overrides + geo)\nsub/avmax-split.conf, shadowrocket-import-url.txt   Shadowrocket rules, Russian list inlined (served by Caddy)
 sub/<dev>                              subscription body served by Caddy at https://<domain>/s/<token>/<dev>
-keenetic/xkeen/04_outbounds.json, 05_routing.json (+ _via_reality/_via_awg), ip_exclude.lst
+keenetic/xkeen/04_outbounds.json, servers/<exit>.json, 05_routing.json (+ _via_reality/_via_awg), ip_exclude.lst
 test/<server>/{reality,reality-chrome,xhttp}.json        local Xray client configs for tests/matrix.sh
 """
 import base64
@@ -374,6 +374,12 @@ def main():
     kd = sec["device_secrets"]["keenetic"]
     write(OUT / "keenetic/xkeen/04_outbounds.json",
           json.dumps(xkeen_outbounds(primary_ip, kd["uuid_home"], kd["reality_short_id"], primary_hv, sec), indent=2) + "\n")
+    for f in (OUT / "keenetic/xkeen/servers").glob("*.json"):  # drop servers removed from the inventory
+        f.unlink()
+    for name, (ip, hv) in exits.items():  # one 04_outbounds per usable exit: `vpn-mode server <name>` on the router
+        if hv.get("ready") is not False:
+            write(OUT / f"keenetic/xkeen/servers/{name}.json",
+                  json.dumps(xkeen_outbounds(ip, kd["uuid_home"], kd["reality_short_id"], hv, sec), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/05_routing.json", json.dumps(xkeen_routing(), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/routing/05_routing_via_reality.json", json.dumps(xkeen_routing(), indent=2) + "\n")
     write(OUT / "keenetic/xkeen/routing/05_routing_via_awg.json", json.dumps(xkeen_routing("awg-out"), indent=2) + "\n")

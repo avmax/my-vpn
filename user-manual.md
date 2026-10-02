@@ -68,7 +68,7 @@ cp inventory/hosts.example.yml inventory/hosts.yml
    server's country, and Netflix should land on `/xx-en/` (not 403). Curl gets a 403 "challenge" from claude.ai and chatgpt.com;
    that's normal, so check those in a browser.
 8. **Give it to devices:** delete `ready: false`, run `clients/gen.py`, and publish (next section). Then pick it in Shadowrocket.
-9. **Give it to the router:** see [5.6](#56-change-the-routers-exit-server).
+9. **Give it to the router:** see [5.6](#56-switch-the-routers-exit-server).
 
 ### Publish subscriptions (vpn.avmax.me)
 
@@ -210,6 +210,7 @@ R=root@192.168.1.1; X=clients/out/keenetic/xkeen
 scp -O $X/04_outbounds.json $X/05_routing.json $R:/opt/etc/xray/configs/
 ssh $R mkdir -p /opt/etc/xray/routing && scp -O $X/routing/*.json $R:/opt/etc/xray/routing/     # never into configs/
 scp -O $X/ip_exclude.lst $R:/opt/etc/xkeen/
+ssh $R mkdir -p /opt/etc/xray/servers && scp -O $X/servers/*.json $R:/opt/etc/xray/servers/            # for vpn-mode server
 scp -O router/vpn-mode.sh $R:/opt/bin/vpn-mode
 ssh $R 'chmod +x /opt/bin/vpn-mode && vpn-mode geo && XRAY_LOCATION_ASSET=/opt/etc/xray/dat xray run -test -confdir /opt/etc/xray/configs && vpn-mode on'
 ```
@@ -222,24 +223,24 @@ XKeen only proxies members of the connection policy `xkeen`:
 2. **Policy bindings:** drag devices from **Default policy** onto `xkeen`.
 3. Whole home: make `xkeen` the default policy of the **Home** segment.
 
-### 5.6 Change the router's exit server
+### 5.6 Switch the router's exit server
 
-The router uses the **first host in group `eu`** of the inventory. Put the new server there, then:
+```bash
+ssh root@192.168.1.1 vpn-mode servers                 # list; * = in use
+ssh root@192.168.1.1 vpn-mode server timeweb-almaty   # switch (config tested first; ~5 s blip)
+ssh root@192.168.1.1 vpn-mode server hostung-de       # back
+```
+
+The list holds every exit in the inventory except `ready: false` ones. After adding or removing a server, refresh it:
 
 ```bash
 .venv/bin/python clients/gen.py
 R=root@192.168.1.1; X=clients/out/keenetic/xkeen
-ssh $R cp /opt/etc/xray/configs/04_outbounds.json /opt/etc/xray/04_outbounds.prev.json      # backup for rollback
-scp -O $X/04_outbounds.json $X/05_routing.json $R:/opt/etc/xray/configs/ && scp -O $X/ip_exclude.lst $R:/opt/etc/xkeen/
-ssh $R 'XRAY_LOCATION_ASSET=/opt/etc/xray/dat xray run -test -confdir /opt/etc/xray/configs && xkeen -restart'
-ssh $R "netstat -tn | grep -c '<new ip>:443 .*ESTABLISHED'"       # above 0 = home traffic uses it
+ssh $R 'rm -rf /opt/etc/xray/servers && mkdir -p /opt/etc/xray/servers' && scp -O $X/servers/*.json $R:/opt/etc/xray/servers/
+scp -O $X/05_routing.json $R:/opt/etc/xray/configs/ && scp -O $X/ip_exclude.lst $R:/opt/etc/xkeen/ && ssh $R xkeen -restart
 ```
 
-**Rollback** to the previous server (currently Almaty):
-
-```bash
-ssh root@192.168.1.1 'cp /opt/etc/xray/04_outbounds.prev.json /opt/etc/xray/configs/04_outbounds.json && xkeen -restart'
-```
+New exits' IPs must reach the router's direct list (the last line), or devices running Shadowrocket at home get tunnelled twice.
 
 ### 5.7 VPN on/off
 
@@ -299,7 +300,7 @@ Then run `gen.py`, publish subscriptions (section 2), and copy the router files 
 
 | Symptom | Fix |
 |---|---|
-| Home internet is broken | `ssh root@192.168.1.1 vpn-mode off`, then rollback (5.6) |
+| Home internet is broken | `ssh root@192.168.1.1 vpn-mode off`, or switch server: `vpn-mode server timeweb-almaty` (5.6) |
 | In calls, others stop hearing you every ~5 min | The router's accelerator is back on. Turn it off (5.1, step 5) |
 | Claude on this Mac stops after a VPN change | Shadowrocket off, Amnezia on, then investigate |
 | Shadowrocket says connected, but nothing loads | Server Xray is newer than 26.7.28. Keep `xray_version: 26.7.28` |
