@@ -119,10 +119,17 @@ cd ansible && ../.venv/bin/ansible-playbook site.yml -l msk && ../.venv/bin/ansi
    Group **avmax** appears. (Manual way: **+ → Type: Subscribe → URL**. The **Import…** button won't take links.)
 3. **Rules:** **Config** tab → **+** → paste the `avmax-split.conf` URL from `SUBSCRIPTION-URLS.txt` → **Use Config**.
    Then on **Home**, set **Global Routing → Config**.
-4. Turn off any other VPN. Select **avmax-hostung-de** and turn the switch on.
-5. **Settings → On Demand:** on, with *connect* on Wi-Fi and Ethernet. At home it's fine to leave it on: the router sends the
-   tunnel straight out.
-6. **Check:** `tests/leak-check.sh`. The foreign view should show the exit; ip.beget.ru should show your home address.
+4. **Settings → Proxy → Proxy Type: None (TUN Mode).** With **HTTP**, Shadowrocket also sets the system proxy
+   127.0.0.1:1082; apps that copied it (Claude) stop working once Shadowrocket is off. Restart such apps after the change.
+5. Turn off any other VPN. Select **avmax-hostung-de** (the selected server is the default) and turn the switch on.
+6. **Settings → Permissions → Location:** allow. Without it the Wi-Fi name is invisible and the home rule never fires.
+7. **Settings → On Demand:** **Always On** off, **On Demand** on. Rules, in this order (**+**):
+   - **Disconnect**, Network **Wi-Fi**, SSIDs `Keenetic-0650` (at home the router does the VPN)
+   - **Connect**, Network **Any**
+8. **System Settings → Wi-Fi → Details…** (Keenetic-0650) → **Private Wi-Fi address: Fixed**. The router's policy
+   recognises the Mac by this address.
+9. Router: put the Mac in policy `xkeen` (5.5).
+10. **Check:** `tests/leak-check.sh`. The foreign view should show the exit; ip.beget.ru should show your home address.
 
 To swap the rules file, switch to **default.conf** first. Shadowrocket won't delete the config in use.
 
@@ -130,17 +137,25 @@ To swap the rules file, switch to **default.conf** first. Shadowrocket won't del
 
 ## 4. iPhone
 
-1. Install **Shadowrocket** from the App Store (non-Russian Apple ID).
-2. On the Mac, open the two QR codes and scan each with Shadowrocket's scan icon (top left):
+The same steps work for a family member's iPhone; it then shares your login.
+
+1. Install **Shadowrocket** from the App Store. With a Russian Apple ID: App Store → profile → **Sign Out** (App Store only,
+   not iCloud), sign in with the non-Russian ID, install, sign back.
+2. On the Mac, open the two QR codes and scan each with the iPhone's **Camera** app → tap the yellow **Shadowrocket** link.
+   (Shadowrocket's own scanner ignores these codes.)
    ```bash
-   open clients/out/iphone/shadowrocket-1-subscribe.png     # servers
-   open clients/out/iphone/shadowrocket-2-rules.png         # rules
+   open clients/out/iphone/shadowrocket-1-subscribe.png clients/out/iphone/shadowrocket-2-rules.png
    ```
-   The QR codes contain your login. Close them afterwards and don't share them.
+   The codes contain your login. Close them afterwards and don't share them.
 3. **Config → avmax-split.conf → Use Config**, then **Home → Global Routing → Config**.
-4. Select **avmax-hostung-de** and turn the switch on.
-5. **Settings → On Demand:** *connect* on Cellular and Wi-Fi.
-6. **Check** on mobile data: ip.beget.ru should show your mobile address, and ipinfo.io the exit.
+4. Tap **avmax-hostung-de** (the default) and turn the switch on.
+5. **Settings → Permissions → Location:** allow.
+6. **Settings → On Demand:** **Always On** off, **On Demand** on, rules **Disconnect · Wi-Fi · `Keenetic-0650`**, then
+   **Connect · Any**.
+7. iOS **Settings → Wi-Fi → (i)** (Keenetic-0650) → **Private Wi-Fi Address: Fixed**.
+8. Router: put the iPhone in policy `xkeen` (5.5).
+9. **Check:** on mobile data ipinfo.io shows the exit. On home Wi-Fi Shadowrocket shows *Not Connected* and ipinfo.io still
+   shows the exit (via the router).
 
 **Update servers:** swipe the **avmax** group left → **Update**.
 

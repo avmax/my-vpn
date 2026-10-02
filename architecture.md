@@ -15,30 +15,34 @@ iPhone use an app that switches itself on. A Moscow exit is planned for travelli
  HOME (Moscow, MGTS)                                  EXIT SERVER (foreign VPS)
  ┌───────────────────────────────┐   VLESS+Reality   ┌────────────────────────────────────────┐
  │ Keenetic Giga KN-1012         │──────────────────►│ Xray 26.7.28                            │──► foreign internet
- │ XKeen (Xray) for all clients  │   (planned)       │  Reality + Vision  (443, or 8443 on a   │    ChatGPT, Claude, YouTube,
- │ vpn-mode on | off             │                   │  shared host)                           │    Google, Netflix …
+ │ XKeen (Xray), policy `xkeen`  │                   │  Reality + Vision  (443, or 8443 on a   │    ChatGPT, Claude, YouTube,
+ │ vpn-mode on|off|server NAME   │                   │  shared host)                           │    Google, Netflix …
  └───────────────────────────────┘                   │ Caddy: real website + subscriptions     │
    devices on home Wi-Fi: no apps                    │ AmneziaWG (UDP fallback)                │
                                                      │ awg link to Moscow (planned) ───┐       │
  AWAY (cellular / other Wi-Fi)                       └─────────────────────────────────┼───────┘
  ┌───────────────────────────────┐   VLESS+Reality          ▲                           ▼
  │ MacBook, iPhone: Shadowrocket │──────────────────────────┘         ┌──────────────────────────────┐
- │ On Demand, split rules        │                                    │ Moscow VPS (planned)         │──► Russian internet
+ │ On Demand: off on home Wi-Fi  │                                    │ Moscow VPS (planned)         │──► Russian internet
  └───────────────────────────────┘                                    │ AmneziaWG + NAT, RU address  │    when you are abroad
  Russian destinations always leave directly from wherever the device is └──────────────────────────────┘
 ```
 
-**Today (2026-09-27):** the exit is `timeweb-almaty` (Timeweb, Almaty, AS9123), a *shared* production host running Xray alone
-on port 8443. The MacBook runs Shadowrocket against it. iPhone, router and the Moscow node are next. The exit is temporary:
-its traffic to Europe transits Moscow, so some Russia-blocked services (Instagram) fail intermittently. See *Constraints*.
+**Today (2026-10-02):** everything above runs except the Moscow node.
+
+| Exit | Where | Role |
+|---|---|---|
+| `hostung-de` 213.209.135.6 | hostung.net VPS S-1 (Cherry Servers AS214159), geolocated Germany | default for the router and all devices; dedicated (`site.yml`), Reality on 443 + XHTTP + AmneziaWG |
+| `timeweb-almaty` 92.118.115.34 | Timeweb, Almaty (AS9123) | backup; *shared* production host, Xray alone on 8443; its route to Europe transits Moscow (Instagram flaky); publishes the subscriptions |
 
 ## Modes
 
 | Where | State | Russian destinations | Foreign destinations | How it switches |
 |---|---|---|---|---|
-| Home Wi-Fi (router) | `vpn-mode on` | direct | exit server | one tap: Shortcut → SSH to the router |
+| Home Wi-Fi (router) | `vpn-mode on` | direct | exit server | SSH to the router (or a Shortcut) |
+| Home Wi-Fi (router) | `vpn-mode server NAME` | direct | the chosen exit | same; `vpn-mode servers` lists them |
 | Home Wi-Fi (router) | `vpn-mode off` | direct | direct | same |
-| Mac / iPhone away | Shadowrocket connected | direct | exit server | automatic (On Demand) |
+| Mac / iPhone away | Shadowrocket connected | direct | exit server | automatic: On Demand connects off home Wi-Fi, disconnects on `Keenetic-0650` |
 | Mac / iPhone abroad | `avmax-<server>-abroad` selected | Moscow VPS, via the exit | exit server | pick that server in Shadowrocket |
 
 ## Components
@@ -49,8 +53,8 @@ its traffic to Europe transits Moscow, so some Russia-blocked services (Instagra
 | Caddy | exit VPS (dedicated only) | the real website Reality imitates ("steal oneself"), Let's Encrypt, private subscription files under `/s/<token>/` | `ansible/roles/caddy` |
 | AmneziaWG | exit VPS (dedicated only), Moscow VPS | obfuscated WireGuard as the UDP fallback; server side of the Moscow link | `ansible/roles/awg`, `awg-link` |
 | Base hardening | every dedicated VPS | key-only SSH, ufw, fail2ban, unattended upgrades, BBR, IPv6 off | `ansible/roles/base` |
-| Shadowrocket | MacBook, iPhone | VLESS Reality client, split rules, On Demand | config from `clients/gen.py` |
-| XKeen (Xray) | Keenetic router, Entware on USB | transparent proxy for every LAN device, same split rules | `router/`, `clients/gen.py` |
+| Shadowrocket | MacBook, iPhones | VLESS Reality client in TUN mode (no system proxy), split rules, On Demand by Wi-Fi name | config from `clients/gen.py` |
+| XKeen (Xray) | Keenetic router, Entware on USB | transparent proxy for members of policy `xkeen` (TCP redirect, UDP TPROXY), same split rules; one config per exit in `/opt/etc/xray/servers/` | `router/`, `clients/gen.py` |
 | Control Mac | this MacBook, the repo | Ansible, secrets, client-config generator, tests | whole repo |
 | Test Mac | second MacBook on the LAN | runs every network test so a broken tunnel never cuts the working Mac | `tests/remote.sh` |
 
@@ -88,11 +92,11 @@ site's own links, optionally Claude) for review before it is appended to `custom
 
 ## Servers: two layouts
 
-| | Dedicated exit (target) | Shared host (today: `timeweb-almaty`) |
+| | Dedicated exit (`hostung-de`) | Shared host (`timeweb-almaty`) |
 |---|---|---|
 | Playbook | `ansible/site.yml` (base, awg, caddy, xray) | `ansible/xray-only.yml` (xray only) |
 | Open ports | 22, 80 (ACME + redirect), 443 (Reality; others see the real site), one UDP (AWG) | 8443 added; everything else untouched |
-| Reality target | own Caddy site on `eu.<domain>` | a neutral site (`kolesa.kz`) |
+| Reality target | own Caddy site on its own name (`vpnhostung.avmax.me`) | a neutral site (`kolesa.kz`) |
 | Subscriptions | own Caddy, `site.yml` | `sub-shared.yml`: one import line in the host's Caddy |
 | Safety | — | host is in inventory group `no_deploy`, which both plays of `site.yml` exclude |
 
@@ -104,10 +108,10 @@ Wrong paths and the bare domain return 404.
 
 - **Today:** the shared host `timeweb-almaty` publishes them: `ansible/sub-shared.yml` adds one validated `import` line and one site
   file to its Caddy and copies the files; its production sites are untouched.
-- **Later:** a dedicated exit publishes them with its own Caddy (`site.yml`); moving the `vpn` DNS record moves the service,
-  and the addresses on the devices never change.
+- **Option:** the dedicated exit can publish them with its own Caddy (`site.yml`); moving the `vpn` DNS record moves the
+  service, and the addresses on the devices never change.
 - **Enrolment:** Mac via the `shadowrocket://add/sub://…` link and the config URL; iPhone by scanning two generated QR codes
-  (`clients/out/<device>/shadowrocket-1-subscribe.png`, `…-2-rules.png`).
+  with the Camera app (`clients/out/<device>/shadowrocket-1-subscribe.png`, `…-2-rules.png`).
 
 ## Secrets
 
@@ -120,7 +124,7 @@ them only between your own devices.
 
 - Direct (Russian) names resolve locally, so Russian CDNs serve from Russia. Proxied names are resolved by the exit.
 - The exit leaves over **IPv4 only**: Google geolocates Timeweb's IPv6 as Russia, and the dedicated servers disable IPv6.
-- MGTS gives home devices native IPv6. The router phase must turn it off or proxy it, or foreign sites with IPv6 bypass the tunnel.
+- MGTS gives home devices native IPv6. IPv6 is off on the router's ISP connection, and XKeen proxies IPv6 too.
 
 ## Constraints and decisions
 
@@ -128,8 +132,12 @@ them only between your own devices.
   (connections look up, nothing loads). Upgrade only after Shadowrocket and XKeen's core handle it.
 - **No Russian transit.** An exit whose route to Europe passes through Russia inherits Russian filtering. `tests/availability.sh`
   flags any Russian hop; `timeweb-almaty` fails this check.
-- **Hosters.** Dead or frozen from the home line (measured 2026-09-19): Hetzner, Vultr, Linode, Scaleway. OVH downloaded at full
-  speed at home but trickled on mobile. Sanctioned: Aeza, PQ.Hosting. Timeweb's foreign ranges are also reported as seen from Russia. Candidates: VDSina Amsterdam, UpCloud Helsinki.
+- **Hosters.** The deciding pre-rent check is TLS on 443 from the home line (`tests/reach.sh`, then `tests/router-tunnel.sh`).
+  Passes: hostung.net / Cherry Servers (Germany). Dead or frozen from MGTS: Hetzner, Vultr, Linode, Scaleway, VDSina
+  Amsterdam (two addresses). OVH trickles. HostKey is fast but excludes Russian residents. Sanctioned: Aeza, PQ.Hosting.
+  Timeweb's foreign ranges are reported as seen from Russia.
+- **Router.** Keenetic's network accelerator (PPE) is off: it takes over established UDP flows and skips XKeen's TPROXY,
+  which froze call audio every few minutes. Dropbear's PID file lives in RAM: a stale one on the stick blocked SSH after reboots.
 - **Legal.** Personal use is not an offence in Russia; sharing or advertising the server is. Keep it to your own devices.
 
 ## Known limits

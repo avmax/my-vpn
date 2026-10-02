@@ -7,15 +7,15 @@ At home the Keenetic router covers every device. Away from home, the MacBook and
 - [architecture.md](architecture.md): how it works and why
 - [tests/RESULTS.md](tests/RESULTS.md): measurements
 
-## Status (2026-09-29)
+## Status (2026-10-02)
 
 | Part | State |
 |---|---|
-| Exit | `hostung-de` 213.209.135.6, hostung.net (Cherry Servers), Germany. The router uses it; Mac and iPhone can pick it |
+| Exit | `hostung-de` 213.209.135.6, hostung.net (Cherry Servers), Germany. Default on the router and all devices |
 | Backup exit | `timeweb-almaty` 92.118.115.34:8443. Routes via Moscow, so Instagram is flaky |
 | Subscriptions | `vpn.avmax.me`, served from Almaty; devices refresh servers and rules themselves |
-| MacBook, iPhone | Shadowrocket, subscribed |
-| Router | XKeen, policy `xkeen`, exit `hostung-de` |
+| MacBook, 2 iPhones | Shadowrocket, subscribed; disconnects itself on home Wi-Fi, where the router covers it |
+| Router | XKeen, policy `xkeen`, exit `hostung-de` (switch: `vpn-mode server`) |
 | Moscow node (travel) | not built |
 
 ## Router: VPN on/off, switch server
