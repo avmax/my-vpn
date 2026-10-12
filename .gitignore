@@ -14,3 +14,4 @@ tests/out/
 inventory/hosts.yml
 tests/remote.env
 rules/.cache/
+.env

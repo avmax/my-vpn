@@ -160,8 +160,10 @@ takes over established UDP flows and skips the TPROXY rule. TCP goes through RED
 only UDP broke. After `no ppe software` + `no ppe hardware`: the same stream ran 6 min with 0.3% loss and no gaps. Speed barely
 changed (direct 99–150 vs 117–135 Mbit/s, VPN 82 vs 92, evening noise), and router CPU stayed 86% idle during a download.
 
-## Decision
+## Decision (2026-10-13)
 
-- EU node: 
-- Standby: 
-- Router Full policy: AWG native / XKeen full rules (pick from AWG stability at home)
+- EU node: `hostung-de` 213.209.135.6 (hostung.net S-1, Cherry Servers, geolocated DE). Passes TLS/Reality from MGTS,
+  100–280 Mbit/s; default for the router and all devices.
+- Standby: `timeweb-almaty` (shared production host, Xray on 8443; Moscow transit, Instagram flaky). Router:
+  `vpn-mode server timeweb-almaty`; devices: pick it in Shadowrocket.
+- Router: split only (XKeen, policy `xkeen`, PPE off). The AmneziaWG fallback (manual 5.8) is prepared but not configured.
