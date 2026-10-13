@@ -12,7 +12,7 @@ At home the Keenetic router covers every device. Away from home, the MacBook and
 | Part | State |
 |---|---|
 | Exit | `hostung-de` 213.209.135.6, hostung.net (Cherry Servers), Germany. Default on the router and all devices |
-| Backup exit | `timeweb-almaty` 92.118.115.34:8443. Routes via Moscow, so Instagram is flaky |
+| Backup exit | `timeweb-almaty` 92.118.115.34:8443. Routes via Moscow: since 2026-10-13 large downloads and Instagram stall. Small traffic only |
 | Subscriptions | `vpn.avmax.me`, served from Almaty; devices refresh servers and rules themselves |
 | MacBook, 2 iPhones | Shadowrocket, subscribed; disconnects itself on home Wi-Fi, where the router covers it |
 | Router | XKeen, policy `xkeen`, exit `hostung-de` (switch: `vpn-mode server`) |

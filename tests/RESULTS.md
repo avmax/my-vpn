@@ -160,10 +160,17 @@ takes over established UDP flows and skips the TPROXY rule. TCP goes through RED
 only UDP broke. After `no ppe software` + `no ppe hardware`: the same stream ran 6 min with 0.3% loss and no gaps. Speed barely
 changed (direct 99–150 vs 117–135 Mbit/s, VPN 82 vs 92, evening noise), and router CPU stayed 86% idle during a download.
 
+## Almaty from home degraded (2026-10-13)
+
+`tests/router-tunnel.sh timeweb-almaty`: exit KZ, small requests fine (generate_204 0.6 s, YouTube, claude.ai), but Instagram
+times out and the 100 MB CacheFly file stalls at 0. On the Almaty server itself the same file runs at 90 Mbit/s and Instagram
+answers 200, so the server's own route is fine. Large transfers on the MGTS → Almaty tunnel are being throttled; in September
+the same test passed. hostung-de in the same run: 103 Mbit/s. Almaty is a backup for small traffic only.
+
 ## Decision (2026-10-13)
 
 - EU node: `hostung-de` 213.209.135.6 (hostung.net S-1, Cherry Servers, geolocated DE). Passes TLS/Reality from MGTS,
   100–280 Mbit/s; default for the router and all devices.
-- Standby: `timeweb-almaty` (shared production host, Xray on 8443; Moscow transit, Instagram flaky). Router:
+- Standby: `timeweb-almaty` (shared production host, Xray on 8443; Moscow transit; since 2026-10-13 large transfers stall). Router:
   `vpn-mode server timeweb-almaty`; devices: pick it in Shadowrocket.
 - Router: split only (XKeen, policy `xkeen`, PPE off). The AmneziaWG fallback (manual 5.8) is prepared but not configured.
