@@ -167,6 +167,14 @@ times out and the 100 MB CacheFly file stalls at 0. On the Almaty server itself 
 answers 200, so the server's own route is fine. Large transfers on the MGTS → Almaty tunnel are being throttled; in September
 the same test passed. hostung-de in the same run: 103 Mbit/s. Almaty is a backup for small traffic only.
 
+## hostung-de outage at the end of the paid month (2026-10-28)
+
+The server stopped at ~00:15 UTC on the day its month ran out and booted again at 08:29 UTC (renewed). In between, every foreign
+site through the VPN failed while Russian sites worked. After the restart: tunnel from home 105 Mbit/s, Instagram/YouTube/Claude/
+ChatGPT 200, Russian sites direct (ip.beget.ru sees the home address). Changed: ipinfo and Cloudflare now geolocate the exit
+as Stockholm, SE (was Augsburg, DE), and the return path to MGTS goes via NTT, so RTT is 136 ms instead of 25 ms. Lesson:
+auto-renew the exit, or keep a working second exit (Almaty is degraded since 2026-10-13).
+
 ## Decision (2026-10-13)
 
 - EU node: `hostung-de` 213.209.135.6 (hostung.net S-1, Cherry Servers, geolocated DE). Passes TLS/Reality from MGTS,
